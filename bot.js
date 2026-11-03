@@ -151,7 +151,7 @@ async function autoInvest() {
   }
   if (s.r >= 4 && m > 9000000) { if (s.fac.finca === 1) { await fac('[data-upfac="finca"]'); m -= 3000000 } for (const f of ['club', 'wash', 'pizza']) if (!s.fronts.includes(f)) { await front(f); m -= 1000000 } }
   if (s.r >= 4 && s.st >= 35 && m > 3000000 && (s.dist.plata || 0) < 3) await take('plata', 3);
-  if (s.r >= 5 && s.lawyer < 5 && m > 2000000) { await closeAll(); await E(() => document.querySelector('#aProt').click()); await wait(900); await E(() => document.querySelector('#slip [data-syn="law"]')?.click()); await wait(800); acts.push(await hqBuy('[data-hire="5"]')); await closeAll() }
+  if (s.r >= 5 && s.lawyer < 5 && m > 2000000 && !(globalThis.GOAL && GOAL.noLawyer)) { await closeAll(); await E(() => document.querySelector('#aProt').click()); await wait(900); await E(() => document.querySelector('#slip [data-syn="law"]')?.click()); await wait(800); acts.push(await hqBuy('[data-hire="5"]')); await closeAll() }
   return acts.length ? 'invest: ' + acts.join(' | ') : null;
 }
 async function mainAction() {

@@ -57,6 +57,7 @@ globalThis.buyDialogAct = async () => {
   if (need.streak(a) && x.rank >= 2) { add('her', 400 - (x.inv.her | 0)); add('amf', 400 - (x.inv.amf | 0)) }
   if (need.ostvest(a) && x.rank >= 4) for (const g of ['mar', 'her', 'amf', 'lsd', 'kok', 'ecs']) add(g, 400 - (x.inv[g] | 0) - (x.stash[g] | 0));
   if (/THAILAND/.test(title) && !a.s_via) add('via', 1300 - (x.inv.via | 0));
+  if (x.rank >= 5 && !(x.tl && x.tl.done)) { add('spr', 2600 - (x.inv.spr | 0)); add('kok', 1300 - (x.inv.kok | 0)); add('mar', 3600 - (x.inv.mar | 0)) }
   if (x.dr && x.dr.on) delete want.kok;
   const q = {};
   for (const [g, n] of Object.entries(want)) { const k = Math.min(n, Math.floor(budget * .6 / pr[g])); if (k > 0) { q[g] = k; budget -= k * pr[g] } }
@@ -234,3 +235,38 @@ globalThis.handle = async (inf) => {
   return _handle0(inf);
 };
 print('ach loaded');
+// ---------- patch 2: DR selling, TL orders, heli, stocks ----------
+{ const _sellP = globalThis.sellAct;
+  globalThis.sellAct = async () => {
+    const x = globalThis._RX && globalThis._RX.x;
+    if (x && x.dr && x.dr.on && !(globalThis._RX.mode === 'streak')) {
+      const kd = await E(() => { const tr = [...document.querySelectorAll('#slip tbody tr')].find(t => t.querySelector('#n_kok')); if (!tr) return -1; return +(tr.querySelectorAll('td')[2].innerText.match(/\d+/) || [0])[0] });
+      if (kd >= 0 && kd < 2600 && (STATE.drW || 0) < 4) { STATE.drW = (STATE.drW || 0) + 1; await E(() => document.querySelector('#sellWait').click()); return 'dr-wait kok=' + kd }
+      STATE.drW = 0; STATE.waits = 99;
+    }
+    return _sellP();
+  } }
+{ const _mainP = globalThis.mainAction;
+  globalThis.mainAction = async () => {
+    const x = await X(), a = await ach();
+    globalThis._RX = { x, a, mode: null };
+    // helicopter for the escape game
+    if (GOAL.trial === 'flee' && !x.heli && x.rank >= 4 && x.money > 8e6 && STATE.heliDay !== x.day) { STATE.heliDay = x.day; await closeAll(); await E(() => document.querySelector('#aProt').click()); await wait(900); await E(() => document.querySelector('#slip [data-tab="v"]')?.click()); await wait(800); const r = await hqBuy('[data-heli="buy"]'); await closeAll(); return 'heli ' + r }
+    // DR: no trips, sell kok at home
+    if (x.dr && x.dr.on) { if ((x.inv.kok | 0) > 0) return openSell(); }
+    // TL orders active: keep stock for sell orders, go fetch
+    const tlOn = await E(() => !!(S.tl && S.tl.start != null && !S.tl.done));
+    if (tlOn) {
+      const fj = x.jobs.filter(j => j.k === 'fetch' && j.prog < j.q);
+      if (fj.length) { STATE.forceRoute = fj[0].c; await E(() => document.querySelector('#aBuy').click()); return 'tl-fetch ' + fj[0].c }
+      const sj = x.jobs.filter(j => j.k === 'sell' && j.prog < j.q && (x.inv[j.g] | 0) > 0);
+      if (sj.length) return openSell();
+    }
+    return _mainP();
+  } }
+{ const _buyP = globalThis.buyDialogAct;
+  globalThis.buyDialogAct = async () => {
+    // pre-stock for TL orders (Gudfar, before/while TL)
+    return _buyP();
+  } }
+print('ach patch2 loaded');
