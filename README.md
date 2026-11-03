@@ -66,3 +66,24 @@ Useful helpers: `st()` gives a status snapshot, `branches()` lists the BAK portr
 - Unknown dialogs fall through to `fallback()`. It prefers small payments (≤ 2 mill.) and «nei/ikke» options, and logs them in `LOG`.
 - The gang's weekly job has a server-side cap of about kr 1.33 mill. per member per day, so a single run cannot finish it.
 - Long eval cells sometimes kill the kernel. Reload `bot.js` and call `driver` again; the game state lives in the browser.
+
+## Bergen (`bergen.js`)
+
+Bergen belongs to each round and opens when that round passes the Gudfar scene. An Imperiet save that sits at rank 5 without the Gudfar flag can never open it.
+
+To take Bergen, control must reach 70 % with Nygårdsparken done. Hansa-Henrik then invites you to the showdown, and the bot buys him out for max(kr 5 mill., 25 % of your money).
+
+Control comes from:
+- sales: 1 % per kr 150 000, max 2.5 % a week
+- Sjø-Svein's jobs: 17. mai sprit, Brann ecstasy, Nygårdsparken 3 loads, +10 % each
+- Ali's smokes: +5 %
+
+Load it after `bot.js`: `(0, eval)(await Bun.file('bergen.js').text())`. From then on the bot does this automatically once a round is Gudfar:
+- stocks up on sprit, ecstasy and tobacco in Polen and Nederland
+- ships via Bergensbanen every week
+- lies low a week at a time between shipments
+- buys Henrik out at the showdown
+
+## Gang respect («Din respekt i dag: x / 3 000»)
+
+Only **tribute** fills daily respect; street sales count toward the weekly job, not toward respect. Each payment gives about 396 + 300 × log10(amount / kr 1 mill.) respect, so many small payments (about kr 1 mill. each) are far cheaper than one big one.
