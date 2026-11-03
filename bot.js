@@ -299,7 +299,7 @@ const _mainA = mainAction;
 globalThis.mainAction = async () => {
   const s = await E(() => ({ r: S.rankIdx, day: S.day, m: S.money, imp: !!S.imp }));
   if (s.r >= 5 && s.day >= 3610 && !s.imp) {
-    if (s.day >= 3649 && !STATE.tribDone) return await payTribute();
+    if (s.day >= 3649 && globalThis.TRIBUTE === true && !STATE.tribDone) return await payTribute();
     await E(() => document.querySelector('#layLowBtn').click()); await wait(600);
     const ok = await E(() => { const b = document.querySelector('#slip [data-w="1"]'); if (b && !b.disabled) { b.click(); return true } return false });
     if (!ok) await closeAll();
@@ -307,7 +307,7 @@ globalThis.mainAction = async () => {
   }
   return await _mainA();
 };
-const _startF = startFig; globalThis.startFig = async (...a) => { const r = await _startF(...a); STATE.tribDone = !globalThis.TRIBUTE; return r };
+const _startF = startFig; globalThis.startFig = async (...a) => { const r = await _startF(...a); STATE.tribDone = false; return r };
 globalThis.REP = globalThis.REP || [];
 globalThis.driver = async (ms) => {
   const t0 = Date.now();

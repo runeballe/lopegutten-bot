@@ -30,7 +30,7 @@ Results so far (player card Onkel-Akan):
    ```js
    await startFig('NAVN', 4, 'BAK');            // nickname, figure portrait 1–10, family
    globalThis.QUEUE = [['NESTE', 5, 'BAK']];    // figures to start after this one ends
-   globalThis.TRIBUTE = false;                  // true = pay 100 % tribute to the gang on 30.12.1999
+   globalThis.TRIBUTE = true;                   // opt-in: pay 100 % tribute to the gang on 30.12.1999 (default: no tribute)
    await driver(1700 * 1000);                   // runs up to ~28 min per call; call again to continue
    ```
    Call `driver` repeatedly. Each call returns `'time'`, `'done'` (queue empty), or `'decide'` / `'stuck'` (a dialog the rules don't cover; check `REP` and `await info2()`).
