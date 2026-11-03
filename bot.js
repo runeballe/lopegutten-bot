@@ -33,7 +33,7 @@ const reserveOf = gi => Math.max(2000, gi.money * (gi.rank >= 1 ? 0.12 : 0.03)) 
 
 async function buyDialogAct() {
   const gi = await gameInfo();
-  if (gi.rank >= 5 && !gi.imp) { await E(() => document.querySelector('#slip footer button').click()); return 'coast-nobuy'; }
+  if (gi.rank >= 5 && !gi.imp && globalThis.COAST !== false) { await E(() => document.querySelector('#slip footer button').click()); return 'coast-nobuy'; }
   const rows = await E(() => [...document.querySelectorAll('#slip tbody tr')].map(tr => { const n = tr.querySelector('input[type=number]'); if (!n) return null; const c = tr.querySelectorAll('td'); return { id: n.dataset.id, price: +c[1].innerText.replace(/\D/g, '') } }).filter(Boolean));
   const title = (await info2()).title;
   const mult = /RUSSLAND/i.test(title) ? 450 : 250, DM = DMs[gi.rank];
@@ -132,8 +132,8 @@ async function autoInvest() {
   const take = async (d, dealers) => { await openRoom('gata', 'street'); if (!s.dist[d]) { acts.push(await hqBuy(`[data-take="${d}"]`)); await openRoom('gata', 'street') } for (let k = (s.dist[d] || 1); k < dealers; k++) { await E((d) => document.querySelector(`#slip [data-dd="${d}"][data-n="1"]`)?.click(), d); await wait(350) } await closeAll() };
   const front = async (f) => { await openRoom('biz', 'fronts'); acts.push(await hqBuy(`[data-front="${f}"]`)); await closeAll() };
   const fac = async (sel) => { await openRoom('biz', 'prod'); acts.push(await hqBuy(sel)); await closeAll() };
-  if (s.r >= 2 && s.prot < 45 && m > 150000) acts.push(await protBuy(['[data-cfill="t"]', '[data-cfill="g"]', 'weap']));
-  if (s.r >= 3 && s.prot < 88 && m > 800000) acts.push(await protBuy(['[data-hire="l"]', '[data-cfill="r"]', '[data-cfill="t"]', '[data-cfill="g"]', 'weap']));
+  if (!globalThis.NOPROT && s.r >= 2 && s.prot < 45 && m > 150000) acts.push(await protBuy(['[data-cfill="t"]', '[data-cfill="g"]', 'weap']));
+  if (!globalThis.NOPROT && s.r >= 3 && s.prot < 88 && m > 800000) acts.push(await protBuy(['[data-hire="l"]', '[data-cfill="r"]', '[data-cfill="t"]', '[data-cfill="g"]', 'weap']));
   else if (s.r >= 2 && s.weap < s.people && m > 100000) acts.push(await protBuy(['weap']));
   if (s.r >= 2 && m > 350000 && !s.dist.gron) { await take('gron', 1); await take('toyen', 1); m -= 110000 }
   if (s.r >= 3 && m > 1000000 && s.fac.farm === undefined) { await fac('[data-buyfac="farm"]'); m -= 250000 }
@@ -158,12 +158,12 @@ async function mainAction() {
   const gi = await gameInfo();
   if (gi.loan && gi.money > gi.loan * 2.5 + 20000) { await E(() => document.querySelector('#aLoan').click()); await wait(600); const i = await info2(); const b = i && i.btns.find(b => /BETAL TILBAKE/i.test(b.t) && !b.dis); if (b) { await clickIdx(b.i); return 'repaid' } await closeAll(); }
   const inv = await autoInvest(); if (inv) return inv;
-  if (gi.rank >= 5 && !gi.imp) {
+  if (gi.rank >= 5 && !gi.imp && globalThis.COAST !== false) {
     const g = Object.entries(gi.inv).find(([k, v]) => v > 0);
     if (g && !STATE.mv[g[0]]) { STATE.mv[g[0]] = 1; return await stashMove(g[0], 'stash') }
     await E(() => document.querySelector('#aBuy').click()); return 'coast';
   }
-  if (gi.heat >= 50 && gi.money > gi.waitCost * 7 * 6) { await E(() => document.querySelector('#layLowBtn').click()); await wait(600); await E(() => document.querySelector('#slip [data-w="7"]')?.click()); return 'laylow' }
+  if (gi.heat >= (globalThis.LAYLOW_AT ?? 50) && gi.money > gi.waitCost * 7 * 6) { await E(() => document.querySelector('#layLowBtn').click()); await wait(600); await E(() => document.querySelector('#slip [data-w="7"]')?.click()); return 'laylow' }
   const s2 = await E(() => ({ sv: S.stash ? dlStashVal() : 0, dcap: S.dist ? dealerCap() : 0, stash: { ...(S.stash || {}) } }));
   if (gi.own && s2.sv > 1.5 * s2.dcap) { const c = Object.entries(s2.stash).filter(([k, v]) => v > 0).sort((a, b) => b[1] * gi.gp[b[0]] - a[1] * gi.gp[a[0]])[0]; if (c && c[1] * gi.gp[c[0]] > .3 * s2.dcap) return await stashMove(c[0], 'case') }
   if (gi.own && gi.day - STATE.gaveAt > 3) { STATE.gaveAt = gi.day; const r = await giveGoods(gi); if (r) return r }
