@@ -126,7 +126,8 @@ globalThis.mainAction = async () => {
     if (proj > 46) return caseAct(x);
     if (proj < 34) globalThis.LAYLOW_AT = 101;
   }
-  if (GOAL.trial === 'flee' && x.cs && x.cs.on) globalThis.LAYLOW_AT = 101;
+  if (GOAL.trial === 'flee' && x.cs && x.cs.on && !(x.dr && x.dr.on)) globalThis.LAYLOW_AT = 101;
+  if (x.dr && x.dr.on) globalThis.LAYLOW_AT = 55;
   // streak during long events
   if (need.streak(a) && x.rank >= 2 && x.ev && (x.inv.her | 0) > 0 && (x.inv.amf | 0) > 0) { globalThis._RX.mode = 'streak'; return openSell() }
   // sykkel: sell LSD on 19 April
