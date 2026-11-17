@@ -212,7 +212,8 @@ async function handle(inf) {
   }
   if (/fightslip/.test(inf.cls) && await E(() => !!document.querySelector('#slip .choice[data-c]:not([disabled])'))) {
     const d = await E(() => { const t = document.querySelector('#slip .body').innerText; const m = t.match(/SJANSE FOR Å VINNE\s*(\d+)\s*%/i); const sl = t.match(/Dere\s*(\d+)\s*mot\s*De\s*(\d+)/i); return { p: m ? +m[1] / 100 : null, mine: sl ? +sl[1] : null, opp: sl ? +sl[2] : null } });
-    const fight = d.p != null && d.p >= .6 && d.mine >= d.opp; await E((c) => document.querySelector(`#slip .choice[data-c="${c}"]`).click(), fight ? 'fight' : 'yield'); return 'fight ' + (fight ? 'yes' : 'no');
+    const fight = d.p != null && d.p >= .6 && d.mine >= d.opp; // There is no «yield» choice: prefer getting away, then paying, then any other enabled choice, and fight only as a last resort.
+    const picked = await E((want) => { const cs = [...document.querySelectorAll('#slip .choice[data-c]:not([disabled])')]; const f = cs.find(c => c.dataset.c === 'fight'); const b = want ? (f || cs[0]) : (['flee', 'run', 'hide', 'pay', 'buy'].map(k => cs.find(c => c.dataset.c === k)).find(Boolean) || cs.find(c => c !== f) || f); if (!b) return null; b.click(); return b.dataset.c }, fight); return 'fight ' + (fight ? 'yes' : 'no') + ' (' + picked + ')';
   }
   if (/ANGRIPER/i.test(inf.title) && inf.btns.some(b => !b.dis)) { const m = inf.body.match(/Din slagkraft\s*(\d+)\s*VS\s*[^\n]*\n\s*(\d+)/); const mine = m ? +m[1] : 0, opp = m ? +m[2] : 999; const b = inf.btns.find(b => (mine >= opp ? /FORSVAR/ : /GI FRA/).test(b.t) && !b.dis); if (b) { await clickIdx(b.i); return 'turf' } }
   if (/fmslip/.test(inf.cls)) { const c = await E(() => { const cs = [...document.querySelectorAll('#slip .body .choice:not([disabled])')]; if (!cs.length) return null; const a = cs.find(c => /ALIS RÅD/i.test(c.innerText)) || cs.find(c => c.classList.contains('primary')) || cs[0]; a.click(); return 'fm' }); if (c) return c }
@@ -236,7 +237,20 @@ async function handle(inf) {
 async function fallback(inf) {
   const en = inf.btns.filter(b => !b.dis && !b.danger);
   const amt = t => { const m = t.match(/KR\s*([\d\s]+)/i); return m ? +m[1].replace(/\D/g, '') : 0 };
-  if (en.length) { const pay = en.find(b => /^(BETAL|LÅN HAM|KJØP|SPONS|HJELP)/i.test(b.t) && amt(b.t) <= 2000000); const b = pay || en.find(b => !b.primary) || en[0]; await clickIdx(b.i); return 'fb ' + b.t }
+  if (en.length) {
+    // Buttons such as «GJENGEN» open another menu instead of answering; picking them loops forever.
+    const NAV = /^(GJENGEN|GJENG|SE GJENGEN|ÅPNE GJENGEN|KARTET|HOVEDKVARTERET)$/i;
+    let pool = en.filter(b => !NAV.test(b.t)); if (!pool.length) pool = en;
+    // Same dialog and same pick again and again: rotate through the other buttons.
+    const key = inf.title + '|' + inf.btns.map(b => b.t).join('/');
+    const R = STATE.fbRep = STATE.fbRep && STATE.fbRep.key === key ? STATE.fbRep : { key, n: 0 };
+    R.n++;
+    const pay = pool.find(b => /^(BETAL|LÅN HAM|KJØP|SPONS|HJELP)/i.test(b.t) && amt(b.t) <= 2000000);
+    let b = pay || pool.find(b => !b.primary) || pool[0];
+    if (R.n > 3) b = pool[(pool.indexOf(b) + Math.floor((R.n - 1) / 3)) % pool.length];
+    if (R.n > 3 * pool.length + 3) { await closeAll(); R.n = 0; return 'fb-close ' + inf.title }
+    await clickIdx(b.i); return 'fb ' + b.t
+  }
   const c = await E(() => { const cs = [...document.querySelectorAll('#slip .body .choice:not([disabled]), #slip .scnchoices.on [data-c]')].filter(b => b.offsetParent); const bs = cs.length ? cs : [...document.querySelectorAll('#slip .body button')].filter(b => b.offsetParent && !b.disabled && b.innerText.trim().length > 3); if (!bs.length) return null;
     const s = bs.find(c => /IKKE|NEI|LA (HAM|ALI|DEM)|HOLD DEG|AVSLÅ|AVVIS|ETTERGI/i.test(c.innerText)) || bs.find(c => c.classList.contains('primary')) || bs[bs.length - 1]; s.click(); return s.innerText.trim().replace(/\n/g, ' ').slice(0, 50) });
   return c ? 'fb-body ' + c : null;
@@ -270,19 +284,38 @@ globalThis.startFig = async (name, fig, fam = 'BAK') => {
     await closeAll();
     if (!(await E(() => !document.querySelector('#title').hidden))) { await E(() => document.querySelector('#newBtn')?.click()); await wait(900); i = await info2(); if (i && i.btns.length === 2) await clickIdx(1); await wait(1200) }
     await E(() => document.querySelector('#tStart').click()); await wait(1500);
-    i = await info2(); if (i && i.btns.length === 2 && /NYTT/.test(i.title)) { await clickIdx(1); await wait(1500) }
+    i = await info2(); if (i && i.btns.length === 2 && /nytt spill|starte et nytt/i.test(i.title)) { await clickIdx(1); await wait(1500) }
   }
-  await tab.select('#dyFam', fam); await wait(800);
-  await E((f) => document.querySelector(`#dyGrid [data-f="${f}"]`)?.click(), fig); await wait(400);
-  await E(() => document.querySelector('#slip [data-a="blessing"]')?.click()); await wait(300);
+  const famSet = await E((fam) => {
+    const s = document.querySelector('#dyFam');
+    if (!s) return 'no-select';
+    const has = [...s.options].some(o => o.value === fam);
+    if (has) { s.value = fam; s.dispatchEvent(new Event('change', { bubbles: true })); return 'pick'; }
+    s.value = '__ny'; s.dispatchEvent(new Event('change', { bubbles: true }));
+    const i = document.querySelector('#dyFamNew');
+    if (!i) return 'no-new';
+    i.hidden = false; i.value = fam; i.dispatchEvent(new Event('input', { bubbles: true }));
+    return 'new';
+  }, fam);
+  await wait(800);
+  const figSet = await E((f) => {
+    const slots = [...document.querySelectorAll('#dyGrid [data-f]')];
+    const want = slots.find(s => s.dataset.f === String(f) && !s.classList.contains('tk'));
+    const open = want || slots.find(s => !s.classList.contains('tk'));
+    if (!open) return null;
+    open.click();
+    return +open.dataset.f;
+  }, fig);
+  await wait(400);
+  await E(() => { const b = document.querySelector('#slip [data-a="blessing"]'); if (b && !b.disabled) b.click(); }); await wait(300);
   await tab.fill('#dyNick', ''); await tab.type('#dyNick', name); await wait(500);
   const pre = await E(() => document.querySelector('#slip .body').innerText.match(/GREN NR\.[^\n]*\n[^\n]*/)?.[0]);
   await E(() => document.querySelector('#dyOk').click());
-  for (let k = 0; k < 15; k++) { await wait(1000); if (await E(() => !!(S && S.dyn && document.querySelector('#title').hidden && S.money >= 25000))) break }
+  for (let k = 0; k < 20; k++) { await wait(1000); if (await E((name) => !!(S && S.dyn && S.dyn.nick === name && document.querySelector('#title').hidden), name)) break }
   Object.assign(STATE, { waits: 0, lastBuyVal: 0, gaveAt: -99, invDay: -99, mv: {} });
-  return { pre, dyn: await E(() => S.dyn && S.dyn.nick) };
+  return { pre, famSet, figSet, dyn: await E(() => S && S.dyn ? { nick: S.dyn.nick, fam: S.dyn.fam, fig: S.dyn.fig, money: Math.round(S.money) } : null) };
 };
-globalThis.branches = () => E(() => { const f = dynStore().fams.BAK; return Object.values(f.b).map(b => b.n + ':' + b.e) });
+globalThis.branches = () => E(() => { const d = dynStore(); const key = (S && S.dyn && S.dyn.fam) || 'BAK'; const f = d.fams[key]; return f ? Object.values(f.b).map(b => b.n + ':' + b.e) : [] });
 print('bot loaded');
 
 globalThis.payTribute = async () => {
@@ -298,7 +331,7 @@ globalThis.payTribute = async () => {
 const _mainA = mainAction;
 globalThis.mainAction = async () => {
   const s = await E(() => ({ r: S.rankIdx, day: S.day, m: S.money, imp: !!S.imp }));
-  if (s.r >= 5 && s.day >= 3610 && !s.imp) {
+  if (s.r >= 5 && s.day >= 3610 && !s.imp && globalThis.LATE_TRADE !== true) {
     if (s.day >= 3649 && globalThis.TRIBUTE === true && !STATE.tribDone) return await payTribute();
     await E(() => document.querySelector('#layLowBtn').click()); await wait(600);
     const ok = await E(() => { const b = document.querySelector('#slip [data-w="1"]'); if (b && !b.disabled) { b.click(); return true } return false });

@@ -1,2 +1,6 @@
-game.js
 node_modules/
+*.log
+logs/
+cards.txt
+userscript-cards.json
+.DS_Store

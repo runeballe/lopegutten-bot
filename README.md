@@ -64,7 +64,7 @@ Useful helpers: `st()` gives a status snapshot, `branches()` lists the BAK portr
 ## Known gaps
 
 - Unknown dialogs fall through to `fallback()`. It prefers small payments (≤ 2 mill.) and «nei/ikke» options, and logs them in `LOG`.
-- The gang's weekly job has a server-side cap of about kr 1.33 mill. per member per day, so a single run cannot finish it.
+- The gang's weekly job has a server-side cap per member per day (`job.perDay`, kr 5 mill. at gang rank Bakgårdsbanden), so the whole gang has to chip in over several days.
 - Long eval cells sometimes kill the kernel. Reload `bot.js` and call `driver` again; the game state lives in the browser.
 
 ## Bergen (`bergen.js`)
@@ -86,4 +86,24 @@ Load it after `bot.js`: `(0, eval)(await Bun.file('bergen.js').text())`. From th
 
 ## Gang respect («Din respekt i dag: x / 3 000»)
 
-Only **tribute** fills daily respect; street sales count toward the weekly job, not toward respect. Each payment gives about 396 + 300 × log10(amount / kr 1 mill.) respect, so many small payments (about kr 1 mill. each) are far cheaper than one big one.
+Only **tribute** fills daily respect; street sales count toward the weekly job, not toward respect. Big payments follow roughly 396 + 300 × log10(amount / kr 1 mill.) respect, so many small payments are far cheaper than one big one. Measured 2026-11-07: kr 130 000 gives 166 respect, so 18 × kr 130 000 plus one top-up (kr 2.39 mill. in total) fills 3 000. The daily caps (respect, job share, street fight) reset at midnight Oslo time.
+
+## Daily gang chores (`gang.mjs`, `gang-all.mjs`)
+
+`gang.mjs` does one player card's daily gang work in its own headless Chromium profile (`~/.local/share/lopegutten-bot/card-<CODE>`), so several cards can run side by side:
+
+1. Links the card (`restoreDialog`), pulls the card's cloud save and resumes its normal game (or its Imperiet game).
+2. **Tribute:** pays small amounts from the game's money (`KASSA` → «Betal tributt») until «Din respekt i dag» reaches the cap. The last payment is sized to land on the cap.
+3. **Dagens gatekamp:** asks the server for the odds in every district (`pre`, the same call as opening a district and retreating) and fights where chance × control gain is highest. Erkefiende districts give double gain.
+4. **Ukas gjengjobb:** trades with `bot.js` (`COAST = false`, `LATE_TRADE = true`) until this member's daily share (`job.perDay`) is sold, then flushes it with the game's own `gFlush()`. After day 3560 it uses short Sverige/Polen trips. At the year-2000 window it continues in Imperiet when the card's Imperiet slot is empty, so the card keeps a running game for tomorrow.
+5. Saves and pushes the save to the cloud.
+
+```sh
+LG_CARD=XXXXXXXXXXXX node gang.mjs                 # all steps
+LG_CARD=XXXXXXXXXXXX node gang.mjs fight,job       # pick steps: tribute, fight, job
+node gang-all.mjs                                  # every card in ~/.config/lopegutten-bot/cards.txt, 3 at a time (LG_PAR)
+```
+
+`cards.txt` holds one `CODE nickname` per line and stays outside the repo.
+
+**Tampermonkey:** `node build-userscript.mjs` writes `~/lopegutten-gjeng.user.js` (bot.js + `gjeng.user.tpl.js`). It adds an «ØBB-gjengen» panel with Alt / Respekt / Dagens kamp / Gjengjobb / Stopp buttons and does the same steps for the card that is logged in, inside a running normal game. Edit the template and rebuild; never edit the built file.

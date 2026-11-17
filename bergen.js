@@ -48,7 +48,7 @@ globalThis.bergenAct = async (bi) => {
 const _mainB = globalThis.mainAction;
 globalThis.mainAction = async () => {
   const gi = await gameInfo();
-  const bi = gi.rank >= 5 && !gi.imp ? await bgInfo() : null;
+  const bi = gi.rank >= 5 && (!gi.imp || globalThis.BG_IMP) ? await bgInfo() : null;
   if (bi && !bi.taken) {
     const a = await bergenAct(bi); if (a) return a;
     const nd = need(bi);
@@ -62,10 +62,10 @@ globalThis.mainAction = async () => {
   return _mainB();
 };
 const _routeB = globalThis.route;
-globalThis.route = (gi) => (gi.rank >= 5 && !gi.imp && STATE.bgTrip) ? STATE.bgTrip : _routeB(gi);
+globalThis.route = (gi) => (gi.rank >= 5 && (!gi.imp || globalThis.BG_IMP) && STATE.bgTrip) ? STATE.bgTrip : _routeB(gi);
 // buy dialog in Bergen mode: explicit stock targets
 globalThis.bgBuyOverride = async () => {
-  const gi = await gameInfo(); if (!(gi.rank >= 5 && !gi.imp && STATE.bgTrip)) return null;
+  const gi = await gameInfo(); if (!(gi.rank >= 5 && (!gi.imp || globalThis.BG_IMP) && STATE.bgTrip)) return null;
   const bi = await bgInfo(); if (!bi || bi.taken) return null;
   const tgt = { spr: 30000, tob: 600, ecs: 2500 };
   const q = {};

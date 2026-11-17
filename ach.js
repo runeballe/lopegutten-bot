@@ -25,13 +25,15 @@ globalThis.route = (gi) => {
   const R = globalThis._RX; if (!R || STATE.bgTrip) return (STATE.lastRoute = _route0(gi));
   if (STATE.forceRoute) { const r = STATE.forceRoute; STATE.forceRoute = null; return (STATE.lastRoute = r) }
   const a = R.a, x = R.x;
-  const fj = x.jobs.filter(j => j.k === 'fetch' && j.c && j.prog < j.q && x.rank >= (CMIN[j.c] || 0) && j.until - x.day > 12).sort((p, q) => p.until - q.until);
+  const fj = x.jobs.filter(j => j.k === 'fetch' && j.c && j.prog < j.q && x.rank >= (CMIN[j.c] || 0) && j.until - x.day > 2).sort((p, q) => p.until - q.until);
   if (fj.length) return (STATE.lastRoute = fj[0].c);
   if (x.rank >= 2 && (!a.orient || !a.handel) && x.trHer < 1100) return (STATE.lastRoute = 'tr');
   if (x.rank >= 4 && !a.ostvest && ((x.inv.lsd | 0) + (x.stash.lsd | 0) < 300 || (x.inv.ecs | 0) + (x.stash.ecs | 0) < 300)) return (STATE.lastRoute = 'nl');
   if (x.rank >= 5 && !x.imp) {
     if (x.viaOn && !a.s_via && (x.inv.via | 0) < 1100) return (STATE.lastRoute = 'th');
     if (x.dr && x.dr.on) return (STATE.lastRoute = gi.flire === 'ru' ? 'pl' : 'ru');
+    // The cub button is on the Thailand buy dialog, one per calendar month, and it needs the villa.
+    if (!a.ct_zoo && x.vg && x.vg.villa) return (STATE.lastRoute = 'th');
     return (STATE.lastRoute = 'co');
   }
   return (STATE.lastRoute = _route0(gi));
@@ -67,9 +69,18 @@ globalThis.buyDialogAct = async () => {
     .filter(r => r.margin > (x.rank >= 2 ? .9 : .4) && !(x.dr && x.dr.on && r.id === 'kok')).sort((p, z) => z.margin * gp[z.id] - p.margin * gp[p.id]);
   const B0 = budget;
   for (const it of items) { const n = Math.max(0, Math.min(it.target, Math.floor(Math.min(budget, .6 * B0) / it.price))); if (n > 0) { q[it.id] = (q[it.id] || 0) + n; budget -= n * it.price } }
+  // Click the cub before filling quantities. Filling the inputs redraws the dialog and removes the button.
+  if (!a.ct_zoo && /THAILAND/i.test(title)) {
+    const hit = await E(() => {
+      const b = document.querySelector('#ctTigB');
+      if (!b) return 'missing';
+      if (b.disabled) return 'disabled';
+      b.click();
+      return 'hit';
+    });
+    print('tig ' + hit);
+  }
   await E((q) => { for (const [id, v] of Object.entries(q)) { const n = document.querySelector('#slip #n_' + id); if (!n) continue; n.value = v; n.dispatchEvent(new Event('input', { bubbles: true })) } }, q);
-  // tiger cub in Colombia
-  if (!a.ct_zoo) await E(() => { const b = document.querySelector('#slip #ctTigB'); if (b && !b.disabled) b.click() });
   STATE.lastBuyVal = Object.entries(q).reduce((s, [k, n]) => s + n * gp[k], 0);
   const ok = await E(() => { const b = document.querySelector('#buyOk'); if (b && !b.disabled) { b.click(); return true } document.querySelector('#slip footer button').click(); return false });
   return 'buy ' + JSON.stringify(q) + (ok ? '' : ' (none)');
@@ -98,7 +109,7 @@ async function vifAct(x) {
   if (!x.ulBet) {
     await closeAll(); await E(() => { setTimeout(() => ulokkaDialog('v'), 10) }); await wait(1500);
     if (!(await E(() => !!document.querySelector('#slip [data-bs]')))) { await closeAll(); return waitDays(1) }
-    await E(() => document.querySelector('#slip [data-fx="coach"]:not([disabled])')?.click()); await wait(700);
+    // A coach raises the win chance and works against the ten-loss streak.
     await E(() => document.querySelector('#slip [data-bt="l"]')?.click()); await wait(200);
     await E(() => document.querySelector('#slip [data-bs="10000"]')?.click()); await wait(200);
     await E(() => document.querySelector('#slip #ulPlace:not([disabled])')?.click()); await wait(700);
@@ -119,7 +130,8 @@ globalThis.mainAction = async () => {
   globalThis.NOPROT = !x.fwLow && x.day < 700;
   globalThis.LAYLOW_AT = (x.rank >= 3 && x.hansen && x.phone && !a.mobring) ? 101 : 50;
   // VIF
-  if (x.vif && x.vif.own && !a.vif_tap && x.m >= 2 && x.m <= 10) return vifAct(x);
+  // Betting every week freezes trade, Bergen and the godfather jobs. Hunt the streak once those are in.
+  if (x.vif && x.vif.own && !a.vif_tap && a.gf_dr && a.gf_tl && a.bg_lawyer && a.ct_zoo && x.m >= 2 && x.m <= 10) return vifAct(x);
   // case management (frifunn): keep folder 30..50 at 1 Sept 1999
   if (GOAL.trial === 'free' && x.cs && x.cs.on && !x.cs.done && x.y >= 1998 && STATE.caseM !== x.y * 12 + x.m) {
     const ml = Math.max(0, (1999 - x.y) * 12 + 8 - x.m), proj = x.cs.pg + 2.2 * ml;
