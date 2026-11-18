@@ -188,6 +188,43 @@ async function phoneStep(s) {
   return null;
 }
 
+// ---- gang to 2000 makt (10 per firepower) and all six districts (500 each), as Gudfar ----
+async function gangStep(s) {
+  if (s.rank < 5 || s.day - (ST.lastGang ?? -99) < 20) return null;
+  ST.lastGang = s.day;
+  const g = await X(() => ({ slag: slag(), m: S.money, free: DISTRICTS.filter(d => !(S.dist || {})[d.id]).map(d => d.id) }));
+  const out = [];
+  if (g.slag < 200 && g.m > 3e6) {
+    await closeAll(); await X(() => document.querySelector('#aProt')?.click()); await sleep(900);
+    for (const sel of ['[data-cfill="f"]', '[data-cfill="t"]', '[data-cfill="g"]', '[data-cfill="r"]', '[data-cfill="s"]', '[data-hire="l"]']) {
+      out.push(await hqBuy(sel));
+      if (!(await X(() => !!document.querySelector('#slip [data-tab="k"]')))) { await closeAll(); await X(() => document.querySelector('#aProt')?.click()); await sleep(900) }
+    }
+    await X(() => document.querySelector('#slip [data-tab="v"]')?.click()); await sleep(700);
+    out.push('w:' + await X(() => { const b = [...document.querySelectorAll('#slip [data-wfill="tg"]')].filter(b => !b.disabled).pop(); if (b) { b.click(); return b.dataset.n } return 0 }));
+    await sleep(900); await closeAll();
+  }
+  for (const id of g.free.slice(0, 2)) if ((await X(() => S.money)) > 5e6) { await openRoom('gata', 'street'); out.push(id + ':' + await hqBuy(`[data-take="${id}"]`)); await closeAll() }
+  if (!out.length) return null;
+  const a = await X(() => ({ slag: slag(), dist: Object.keys(S.dist || {}).length, makt: makt() }));
+  log('gang ' + out.join(',') + ' -> ' + JSON.stringify(a));
+  return 'gang-push';
+}
+
+// ---- optional (CFG.vifGamble): one bold roulette run at Byens kasinoer to afford Vålerenga early ----
+async function vifGambleStep(s) {
+  if (!CFG.vifGamble || s.rank < 5 || s.vif || ST.vifGambled || s.day > (CFG.vifGambleBy || 2557)) return null;
+  if (typeof BOT_SR_GAMBLE !== 'function') return null;
+  const m = await X(() => S.money);
+  if (m < (CFG.vifGambleMin || 100e6) || m >= CFG.vifBuyAt) return null;
+  ST.vifGambled = true;
+  const target = CFG.vifBuyAt + 20e6;
+  log(`vif gamble from kr ${Math.round(m)} to ${target}`);
+  const after = await BOT_SR_GAMBLE(target);
+  log(`vif gamble result kr ${Math.round(after)}`);
+  return 'vif-gamble ' + Math.round(after);
+}
+
 // ---- Swiss bank: open it, keep only working cash on hand, and pull it all out when Vålerenga is affordable ----
 async function bankStep(s) {
   if (s.rank < 4 || s.day - (ST.lastBank ?? -99) < 7) return null;
@@ -232,7 +269,7 @@ globalThis.mainAction = async () => {
   const s = await X(() => S ? { day: S.day, date: dayDate(S.day).toISOString().slice(0, 10), rank: S.rankIdx, money: S.money, vif: !!(S.vif && S.vif.own), hasBet: !!(S.ulk && S.ulk.bet), imp: !!S.imp, wk: !!S.wk } : null);
   if (s && !s.wk) {
     try {
-      const r = (await facStep(s)) || (await bossStep(s)) || (await lawyerStep(s)) || (await phoneStep(s)) || (await heliStep(s)) || (await vifBuy(s)) || (await vifBet(s)) || (await bankStep(s));
+      const r = (await facStep(s)) || (await bossStep(s)) || (await gangStep(s)) || (await vifGambleStep(s)) || (await lawyerStep(s)) || (await phoneStep(s)) || (await heliStep(s)) || (await vifBuy(s)) || (await vifBet(s)) || (await bankStep(s));
       if (r) return r;
     } catch (e) { log('ERR ' + String(e).slice(0, 120)); try { await closeAll() } catch (_) {} }
   }
