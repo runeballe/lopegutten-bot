@@ -41,6 +41,8 @@ await new Promise(r => setTimeout(r, 3000));
 const linked = await page.evaluate(() => !!store.get('cardCode', ''));
 if (!linked) { await browser.close(); throw new Error('profile is not linked to a player card') }
 for (let n = 0; n < 6; n++) {
+  // two-games conflict (e.g. the owner plays Imperiet on another device): never choose, just stop
+  if (await page.evaluate(() => { const v = document.querySelector('#veil'); return !!(v && !v.hidden && /TO SPILL, ÉN SPILLER|TWO GAMES, ONE PLAYER/i.test(document.querySelector('#slip')?.innerText || '')) })) { say('CONFLICT dialog – stopping without choosing'); await browser.close(); process.exit(5) }
   const c = await page.evaluate(() => { const v = document.querySelector('#veil'); if (!v || v.hidden) return null; const b = [...document.querySelectorAll('#slip footer button')].filter(b => !b.disabled); const x = b.find(b => /SENERE|LUKK|OK|FORTSETT/i.test(b.innerText)) || b[0]; if (x) { x.click(); return x.innerText } return 'none' });
   if (!c) break; await new Promise(r => setTimeout(r, 1000));
 }
@@ -83,7 +85,7 @@ async function startNew() {
 if (!fresh) {
   const r = await page.evaluate((pre) => {
     const d = loadSave(); const Sx = d && d.S;
-    if (!Sx || Sx.over || !(Sx.dyn && String(Sx.dyn.nick || '').startsWith(pre))) return { ok: false, nick: Sx && Sx.dyn && Sx.dyn.nick };
+    if (!Sx || Sx.over || Sx.imp || !(Sx.dyn && String(Sx.dyn.nick || '').toLowerCase().startsWith(pre.toLowerCase()))) return { ok: false, nick: Sx && Sx.dyn && Sx.dyn.nick };
     const onTitle = !document.querySelector('#title').hidden; if (onTitle) resumeGame(); return { ok: true, nick: Sx.dyn.nick, day: Sx.day };
   }, PREFIX);
   say('RESUME', r);

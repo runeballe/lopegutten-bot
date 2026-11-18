@@ -20,7 +20,7 @@ globalThis.scnStep = () => E(() => { const s = document.querySelector('#slip');
   const nb = [...s.querySelectorAll('.body button')].find(b => b.offsetParent && !b.disabled && /^(VIDERE|OK|NESTE)$/i.test(b.innerText.trim())); if (nb) { nb.click(); return 'next' }
   const ch = s.querySelector('.scnchoices.on [data-c]'); if (ch) { ch.click(); return 'choice' }
   s.querySelector('.scn')?.click(); return 'step' });
-globalThis.st = () => E(() => ({ money: Math.round(S.money), day: S.day, date: dayDate(S.day).toISOString().slice(0, 10), rank: S.rankIdx, status: S.status, heat: Math.round(S.heat || 0), prot: protection(), over: S.over, dyn: S.dyn && S.dyn.nick, inv: Object.fromEntries(Object.entries(S.inv).filter(([k, v]) => v)) }));
+globalThis.st = () => E(() => ({ money: Math.round(S.money), day: S.day, date: (d => isFinite(d) ? d.toISOString().slice(0, 10) : 'ugyldig')(dayDate(S.day)), rank: S.rankIdx, status: S.status, heat: Math.round(S.heat || 0), prot: protection(), over: S.over, dyn: S.dyn && S.dyn.nick, inv: Object.fromEntries(Object.entries(S.inv).filter(([k, v]) => v)) }));
 globalThis.gameInfo = () => E(() => ({ rank: S.rankIdx, nBuy: S.nBuy || 0, money: S.money, inv: { ...S.inv }, gp: Object.fromEntries(GOODS.map(g => [g.id, g.price])), heat: S.heat || 0, flire: S.flire ? S.flire.where : null, day: S.day, loan: S.loan ? loanRepay() : 0, dcap: S.dist ? dealerCap() : 0, stashVal: S.stash ? dlStashVal() : 0, own: !!(S.dist && Object.keys(S.dist).length), waitCost: waitCost(), jobs: (S.jobs || []).map(j => ({ k: j.k, g: j.g, q: j.q, c: j.c })), wages: Object.values(S.dist || {}).reduce((a, d) => a + (d.dealers || 0) * 8000, 0), imp: !!S.imp }));
 globalThis.invValue = gi => Object.entries(gi.inv).reduce((a, [k, v]) => a + v * gi.gp[k], 0);
 globalThis.STATE = { waits: 0, lastBuyVal: 0, gaveAt: -99, invDay: -99, mv: {} };
@@ -186,6 +186,8 @@ globalThis.BTN = [ // [regex, button text regex or fn]
   [/VIDEOSJAPPA TIL ARVID/i, /KJØP SJAPPA|NEI/i], [/SPESIALOPPDRAG/i, /NEI TAKK|DET VAR FISK/i], [/BERGEN-BLANDING/i, /KJØR, ALI/i], [/HUSLEIA TIL ALI/i, /BETAL DEN DOBLE/i],
   [/NØKKELEN ER DIN|VILLAEN/i, /SENERE/i], [/Helikopteret står på taket/i, /Bli og ta/i], [/sharkslip|NOTATBOKA/i, /TA LÅNET/i], [/LÅNEHAIEN \/ PERSONSØKEREN/i, /GÅ TIL LÅNEHAIEN/i],
   [/TEKST-TV/i, /^Videre$/i],
+  // Olsens svinegård: pølsa koster ingen dager eller penger; «Takk, jeg er mett» er trygt, deretter OK på regelkortet
+  [/SVINEGÅRDEN/i, /^(TAKK, JEG ER METT|SPIS DEN|OK)$/i],
 ];
 async function handle(inf) {
   const text = inf.title + ' || ' + inf.body;

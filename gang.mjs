@@ -158,7 +158,8 @@ if (STEPS.has('fight')) {
   say('FIGHT PICK', pick);
   if (pick.rows && pick.rows.length) {
     const wanted = process.env.LG_FIGHT || '';
-    const best = pick.rows.find(r => r.id === wanted)?.id || pick.rows[0].id;
+    // LG_FIGHT=duel: ta bydelen som er merket som ukas duell, ellers beste bydel.
+    const best = (wanted === 'duel' ? pick.rows.find(r => r.duel)?.id : pick.rows.find(r => r.id === wanted)?.id) || pick.rows[0].id;
     await globalThis.closeAll();
     await page.evaluate(id => { kgFight(id); return 0 }, best);
     let result = null;

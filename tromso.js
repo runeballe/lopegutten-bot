@@ -12,16 +12,40 @@
     if (!S || !S.imp || S.over || typeof nordS !== 'function') return null;
     const N = nordS(), d = dayDate(S.day);
     return { here: !!N.here, king: !!N.king, sec: { ...N.sec }, c: { ...N.c }, trips: N.trips | 0, dark: nordSeason() === 'dark',
-      month: d.getMonth(), date: d.getDate(), money: S.money, inv: { ...S.inv }, free: nordFree(), fight: nordHasFight(),
+      month: d.getMonth(), date: d.getDate(), money: S.money, fs: N.fs | 0, cap: N.here ? ({ fly: 3000, boat: 9000 })[N.here.via] || 3000 : 3000, soppOn: typeof nordSoppOn === 'function' && !!nordSoppOn(), soppDone: (N.fsY | 0) >= (N.king ? 40000 : 12000), inv: { ...S.inv }, free: nordFree(), fight: nordHasFight(),
       jobNeed: Object.fromEntries(NORD_PL.filter(p => !N.sec[p]).map(p => { const j = N.jobs[p] && NORD_JOBS.find(j => j.id === N.jobs[p]); return [p, j && j.need && j.need.g ? [j.need.g, j.need.q] : null] })) };
   });
   const click = sel => E(s => { const b = document.querySelector(s); if (b && !b.disabled) { b.click(); return true } return false }, sel);
   const primary = () => E(() => { const b = [...document.querySelectorAll('#slip footer button.primary')].find(b => !b.disabled); if (b) { b.click(); return b.innerText.trim() } return null });
+  // Close a Tromsø slip with its own back/close button. Never closeAll here: on a place slip the last
+  // button is «Kjøp av Boris», so closeAll walks Havna → Boris → buy dialog (the old loop).
+  const closeNord = async () => {
+    for (let k = 0; k < 4; k++) {
+      const r = await E(() => { const v = document.querySelector('#veil'); if (!v || v.hidden) return null; const s = document.querySelector('#slip');
+        const x = s.querySelector('.slipx') || [...s.querySelectorAll('footer button')].find(b => /^(TILBAKE|LUKK|BACK|CLOSE|IKKE I KVELD|BLI LITT TIL)/i.test(b.innerText.trim())) || s.querySelector('footer button[data-i="0"]');
+        if (x) { x.click(); return 'x' } return 'none' });
+      if (!r) return; if (r === 'none') { await closeAll(); return } await wait(500);
+    }
+  };
   // Do one thing in Tromsø. Returns a log string, or null when nothing is left to do here.
   async function northStep(t) {
     if (t.fight) {
+      await closeNord();
       await E(() => document.querySelector('#nordCard [data-fight]')?.click()); await wait(1200);
-      const r = await primary(); log('fight ' + r); return 'tr-fight ' + r;
+      const eat = await E(() => { const b = [...document.querySelectorAll('#slip footer button')].find(b => /PØLSA|SAUSAGE/i.test(b.innerText) && !b.disabled); if (b) { b.click(); return true } return false });
+      if (eat) await wait(900);
+      const r = await primary(); await wait(1500); log('fight ' + (eat ? '(pølse) ' : '') + r); return 'tr-fight ' + r;
+    }
+    // autumn: pick fleinsopp on Kvaløya until the bag is full
+    if (t.soppOn && t.fs < t.cap - 900) {
+      await closeNord();
+      if (await click('.actions .nat-td')) {
+        await wait(900);
+        const g = await E(() => { const b = document.querySelector('#slip [data-x="sopp"]'); if (b && !b.disabled) { b.click(); return true } return false });
+        await wait(1500);
+        if (g) { await closeNord(); log('sopp ' + t.fs); return 'tr-sopp ' + t.fs }
+        await closeNord();
+      }
     }
     for (const p of ['hv', 'st', 'td']) {
       if (t.sec[p]) continue;
@@ -33,16 +57,19 @@
         const g = await E(() => { const b = document.querySelector('#slip [data-x="guys"]'); if (b && !b.disabled) { b.click(); return true } return false });
         if (g) { await wait(1500); log('td guys'); return 'tr-guys' }
       }
-      await closeAll();
+      await closeNord();
     }
     return null;
   }
   async function goHome() {
-    await closeAll();
-    await E(() => { const b = document.querySelector('#layLowBtn'); if (b) b.click(); else nordHomeAsk() }); await wait(1000);
-    const r = await E(() => { const s = document.querySelector('#slip'); const b = s && [...s.querySelectorAll('footer button')].find(b => /REIS HJEM|GO HOME/i.test(b.innerText) && !b.disabled); if (b) { b.click(); return b.innerText.trim() } return (s && s.querySelector('header')?.innerText || '').slice(0, 60) });
-    await wait(1500); log('home ' + r); return 'tr-home ' + r;
+    await closeNord();
+    await E(() => { setTimeout(() => nordHomeAsk(), 10) }); await wait(1200);
+    const r = await E(() => { const s = document.querySelector('#slip'); const b = s && [...s.querySelectorAll('footer button')].find(b => /REIS HJEM|GO HOME/i.test(b.innerText) && !b.disabled); if (b) { b.click(); return b.innerText.trim() } return null });
+    await wait(1800); await settleNord();
+    const still = await E(() => !!nordS().here);
+    log('home ' + r + (still ? ' (fortsatt nord)' : '')); return 'tr-home ' + r;
   }
+  const settleNord = async () => { for (let k = 0; k < 6; k++) { const i = await info2(); if (!i) return; const h = await handle(i); if (h === 'decide') await fallback(i); await wait(500) } };
   async function goNorth() {
     await closeAll();
     await E(() => document.querySelector('#impCard .r[data-i="nord"]')?.click()); await wait(1000);
@@ -51,29 +78,37 @@
     const ok = await click('#slip .ngo[data-v="fly"]'); await wait(1500);
     log('north ' + ok); return ok ? 'tr-north' : null;
   }
+  // sell fleinsopp in Oslo (as much as today's demand takes)
+  async function sellSopp() {
+    await closeAll();
+    if (!(await click('#goods .nordfs'))) return null;
+    await wait(900);
+    const r = await E(() => { const R = document.querySelector('#slip #nfsR'); if (R) { R.value = R.max; R.dispatchEvent(new Event('input', { bubbles: true })) } const b = document.querySelector('#slip #nfsOk'); if (b && !b.disabled) { b.click(); return R ? R.max : '?' } return null });
+    await wait(1500); await settleNord(); await closeAll();
+    log('sopp sold ' + r); return r ? 'tr-sopp-sell ' + r : null;
+  }
   // goods an unsecured place's current job is waiting for
   const missing = t => Object.values(t.jobNeed || {}).filter(x => x && (t.inv[x[0]] | 0) < x[1]).map(x => x[0]);
   STATE.trBuy = null;
   const _ma = globalThis.mainAction;
   globalThis.mainAction = async () => {
     const t = await trInfo();
-    if (t && !t.king) {
+    if (t) {
       const allSec = ['hv', 'st', 'td'].every(p => t.sec[p]);
       if (t.here) {
         const r = await northStep(t); if (r) return r;
         return await goHome();
       }
-      // In Oslo: fly north when all places are secured and it is dark, or to keep taking places.
-      const fightTime = allSec && (t.dark || (t.month === 10 && t.date >= 19));
-      const miss = missing(t);
-      if (fightTime || (!allSec && miss.length === 0)) { const r = await goNorth(); if (r) return r }
-      if (!allSec && miss.length) STATE.trBuy = miss; else STATE.trBuy = null;
-      if (allSec && !fightTime) {
-        // wait for the polar night (21 November) a week at a time
-        await click('#layLowBtn'); await wait(600);
-        const w = await E(() => { const b = document.querySelector('#slip [data-w="7"]:not([disabled])'); if (b) { b.click(); return 7 } return null });
-        if (!w) await closeAll(); return 'tr-wait-dark';
+      if (t.fs > 0) { const r = await sellSopp(); if (r) return r }
+      if (!t.king) {
+        // fly north when it is dark (the flight takes 2 days, so from 19 Nov) or to keep taking places
+        const fightTime = allSec && (t.dark || (t.month === 10 && t.date >= 19));
+        const miss = missing(t);
+        if (fightTime || (!allSec && miss.length === 0)) { const r = await goNorth(); if (r) return r }
+        STATE.trBuy = !allSec && miss.length ? miss : null;
       }
+      // autumn: a fleinsopp trip when there is room in the season
+      if (t.soppOn && t.money > 1e6 && !t.soppDone) { const r = await goNorth(); if (r) return r }
     }
     return _ma();
   };

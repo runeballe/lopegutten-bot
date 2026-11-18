@@ -93,7 +93,7 @@ globalThis.srInject = () => X(() => {
   H.info = () => {
     const d = dayDate(S.day), now = evNow(), nx = H.nextEv();
     const inv = {}; let invV = 0; for (const g of GOODS) if ((S.inv[g.id] | 0) > 0) { inv[g.id] = S.inv[g.id]; invV += S.inv[g.id] * g.price }
-    return { day: S.day, dow: d.getDay(), date: d.toISOString().slice(0, 10), rank: S.rankIdx, m: Math.round(S.money), nw: Math.round(netWorth()), heat: Math.round(S.heat || 0),
+    return { day: S.day, dow: d.getDay(), date: isFinite(d) ? d.toISOString().slice(0, 10) : 'ugyldig', rank: S.rankIdx, m: Math.round(S.money), nw: Math.round(netWorth()), heat: Math.round(S.heat || 0),
       inv, invV: Math.round(invV), nBuy: S.nBuy || 0, flire: S.flire ? S.flire.where : null, loan: S.loan ? loanRepay() : 0,
       ev: now ? { id: now.id, to: now.to } : null, nx: nx ? { id: nx.id, from: nx.from } : null, wc: waitCost(),
       fronts: Object.keys(S.fronts || {}), lawyer: S.lawyer == null ? -1 : S.lawyer, ins: !!S.insider, radio: !!S.radio, prot: protection(),
@@ -450,6 +450,7 @@ globalThis.handle = async (inf) => {
 // ---- driver ----
 globalThis.srDriver = async (ms) => {
   const t0 = Date.now();
+  const W = { day: null, t: Date.now(), err: 0 };
   await srInject();
   while (Date.now() - t0 < ms) {
     const st0 = await X(() => ({ over: !S || S.over, gf: S && S.gfDay }));
@@ -457,6 +458,13 @@ globalThis.srDriver = async (ms) => {
     if (st0.over) { await srSettle(); return 'over' }
     if (SR.abort) return 'abort';
     const r = await run(40, null);
+    // vaktbikkje: samme feil om og om igjen, eller dagen står stille i 90 s (NaN teller som stille)
+    const nErr = r.out.filter(a => /^ERR/.test(String(a))).length;
+    W.err = nErr ? W.err + nErr : 0;
+    if (W.err > 20) { SR.abort = 'watchdog: feil gjentas ' + W.err + 'x: ' + String(r.out.find(a => /^ERR/.test(String(a)))).slice(0, 60); return 'abort' }
+    const dNow = await X(() => (S && Number.isFinite(S.day)) ? S.day : -1).catch(() => -1);
+    if (dNow !== W.day || SR.finale) { W.day = dNow; W.t = Date.now() }
+    else if (Date.now() - W.t > 90000) { SR.abort = 'watchdog: dag ' + dNow + ' uendret i 90 s'; return 'abort' }
     for (const a of r.out) if (a && !/^(scn|btn|next|null)/.test(a)) ev(a);
     // the same non-main action 40 times in a row: a dialog we keep re-clicking
     if (r.out.length >= 40 && r.out.every(a => a === r.out[0]) && !/^\[d/.test(String(r.out[0]))) { SR.abort = 'loop: ' + String(r.out[0]).slice(0, 80); return 'abort' }
