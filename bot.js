@@ -288,6 +288,31 @@ globalThis.startFig = async (name, fig, fam = 'BAK') => {
     await E(() => document.querySelector('#tStart').click()); await wait(1500);
     i = await info2(); if (i && i.btns.length === 2 && /nytt spill|starte et nytt/i.test(i.title)) { await clickIdx(1); await wait(1500) }
   }
+  /* NY FLYT (2026): intro-historier (#hkff, #hkst, gatenavn) klikkes gjennom til spillet står */
+  for (let k = 0; k < 60; k++) {
+    const up = await E(() => {
+      const sk = document.querySelector('#hkff .hkskip, #hkst .hkskip');
+      if (sk) { sk.click(); return 'hopp over intro' }
+      const gn = document.querySelector('#gnIn');
+      if (gn) { if (!gn.value) { gn.value = 'Kas-Gjest'; gn.dispatchEvent(new Event('input', { bubbles: true })) } const go = [...document.querySelectorAll('#slip footer button,#slip .body button')].find(b => !b.disabled && b.offsetParent); if (go) { go.click(); return 'gatenavn: ok' } }
+      const v = document.querySelector('#veil');
+      if (v && !v.hidden) {
+        const b = [...document.querySelectorAll('#slip footer button,#slip .body button')].filter(b => !b.disabled && b.offsetParent && !/gi opp/i.test(b.innerText || ''));
+        const x = b.find(b => b.classList.contains('primary')) || b[b.length - 1];
+        if (x) { x.click(); return 'klikk:' + (x.innerText || '').trim().slice(0, 24) }
+      }
+      if (typeof S !== 'undefined' && S && !document.querySelector('#title').hidden) return 'startet';
+      return null;
+    });
+    if (up === 'startet') break;
+    if (up) { const L = globalThis.EX_SAY || globalThis.print; L && L('intro: ' + up); }
+    await wait(1000);
+  }
+  /* NY FLYT (2026): tStart starter vanlig spill uten slektsvindu — S.name er nick */
+  if (await E(() => !document.querySelector('#dyNick') && typeof S !== 'undefined' && S && S.name)) {
+    Object.assign(STATE, { waits: 0, lastBuyVal: 0, gaveAt: -99, invDay: -99, mv: {} });
+    return { pre: null, famSet: 'plain', figSet: null, dyn: await E(() => S ? { nick: S.name, fam: (S.dyn && S.dyn.fam) || 'BAK', fig: null, money: Math.round(S.money) } : null) };
+  }
   const famSet = await E((fam) => {
     const s = document.querySelector('#dyFam');
     if (!s) return 'no-select';

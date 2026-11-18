@@ -77,7 +77,7 @@ async function startNew() {
   const nick = PREFIX + n;
   const started = await globalThis.startFig(nick, pick.free || 1, FAM);
   say('STARTED', started);
-  if (!started || !started.dyn || started.dyn.nick !== nick) throw new Error('new game did not start');
+  if (!started || !started.dyn || (started.famSet !== 'plain' && started.dyn.nick !== nick)) throw new Error('new game did not start');
   Object.assign(SR, { abort: null, done: null, finale: null, route: null, fullRev: 0, waits: 0, betCache: null, midDone: null, noSellDay: null, t0: Date.now(), nick });
   return nick;
 }
