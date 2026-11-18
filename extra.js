@@ -138,7 +138,7 @@ async function heliStep(s) {
   if (!h || h.own || !h.can || h.m < h.price * 3 + 2e6) return null;
   await closeAll(); await X(() => document.querySelector('#aProt')?.click()); await sleep(1200);
   let r = 'nobtn';
-  for (const tabId of [null, 'v', 'k', 'f', 'w']) {
+  for (const tabId of [null, 'u', 'v', 'k', 'f', 'w']) {
     if (tabId) { const ok = await X(t => { const b = document.querySelector(`#slip [data-tab="${t}"]`); if (b) { b.click(); return true } return false }, tabId); if (!ok) continue; await sleep(800) }
     r = await X(() => { const b = document.querySelector('#slip [data-heli="buy"]'); if (b && !b.disabled) { b.click(); return 'ok' } return 'nobtn' });
     if (r === 'ok') break;
@@ -154,7 +154,7 @@ async function heliStep(s) {
 async function hqClick(sel) {
   await closeAll(); await X(() => document.querySelector('#aProt')?.click()); await sleep(1200);
   let r = 'nobtn';
-  for (const tabId of [null, 'v', 'k', 'f', 'w']) {
+  for (const tabId of [null, 'u', 'v', 'k', 'f', 'w']) {
     if (tabId) { const ok = await X(t => { const b = document.querySelector(`#slip [data-tab="${t}"]`); if (b) { b.click(); return true } return false }, tabId); if (!ok) continue; await sleep(800) }
     r = await X(sel => { const b = document.querySelector('#slip ' + sel); if (b && !b.disabled && !b.classList.contains('no')) { b.click(); return 'ok' } return 'nobtn' }, sel);
     if (r === 'ok') break;
@@ -181,7 +181,7 @@ async function phoneStep(s) {
   ST.lastPhone = s.day;
   const p = await X(() => typeof PHONE === 'undefined' ? null : { own: !!S.phone, tap: !!S.tap, can: typeof phoneAvail === 'function' && phoneAvail(), price: PHONE.price, m: S.money });
   if (!p) return null;
-  if (p.own && p.tap && p.m > 50000) { const r = await hqClick('[data-sim]'); log(`phone new sim ${r} tap=${await X(() => !!S.tap)}`); return 'sim ' + r }
+  if (p.own && p.tap && p.m > 50000) { const r = await hqClick('[data-sim]'); if (r !== 'ok') ST.lastPhone = s.day + 50; log(`phone new sim ${r} tap=${await X(() => !!S.tap)}`); return 'sim ' + r }
   const rd = await X(() => typeof RADIO === 'undefined' ? null : { own: !!S.radio, can: typeof radioAvail === 'function' && radioAvail(), price: RADIO.price, m: S.money });
   if (rd && !rd.own && rd.can && rd.m > rd.price * 3 + 100000) { const r = await hqClick('[data-radio]'); log(`radio buy ${r} own=${await X(() => !!S.radio)} (kr ${rd.price})`); return 'radio ' + r }
   if (!p.own && p.can && p.m > p.price * 3 + 100000) { const r = await hqClick('[data-phone]'); log(`phone buy ${r} own=${await X(() => !!S.phone)} (kr ${p.price})`); return 'phone ' + r }
