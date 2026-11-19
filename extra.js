@@ -253,9 +253,41 @@ async function bankStep(s) {
 }
 const BANKKEEP = () => CFG.cashKeep;
 
+// ---- Skap 214: ny gjenstand hver dag kl. 18 (ekte tid). Åpne, legg i samlingen, bruk det som hjelper. ----
+// Ikke brukt automatisk: pris (bare en prisliste), glenn (spilleautomat), trofeer og boblejakka.
+const BX_SKIP = ['pris', 'glenn', 'boble'];
+async function skapStep(s) {
+  const k = await X(skip => { if (typeof bxReady !== 'function' || !S || !S.bx) return null; const K = S.bx;
+    const use = BX_ITEMS.filter(x => (K.inv[x[0]] || 0) > 0 && x[2] !== 'trofe' && !skip.includes(x[0]) && !bxCan(x[0])).map(x => x[0]);
+    return { ready: bxReady(), waitU: K.watch && K.watch.d === bxDrop() ? (K.watch.u || 0) : 0, use, n: K.n } }, BX_SKIP);
+  if (!k) return null;
+  const open = () => X(() => { const b = document.querySelector('#bxBtn') || document.querySelector('#bxBtn2'); if (!b) return false; b.click(); return true });
+  if (k.ready && Date.now() >= k.waitU) { if (await open()) { log(`skap open (${k.n}/30)`); await wait(500); return 'skap open' } }
+  if (k.use.length && ST.bxDay !== s.day) { ST.bxDay = s.day; if (await open()) { log('skap bruk ' + k.use.join(',')); await wait(500); return 'skap use' } }
+  return null;
+}
+async function skapDialog(inf) {
+  const r = await X(skip => { const s = document.querySelector('#slip'); if (!s) return null;
+    const u = [...s.querySelectorAll('[data-bxu]')].find(b => !b.disabled && !skip.includes(b.dataset.bxu)); if (u) { u.click(); return 'skap use ' + u.dataset.bxu }
+    const g = s.querySelector('.bxgo'); if (g) { g.click(); return 'skap go' } return null }, BX_SKIP);
+  if (r) { log(r); await wait(400); return r }
+  const en = inf.btns.filter(b => !b.dis);
+  if (/bxcf/.test(inf.cls)) { // konfrontasjonen etter 30 leveranser: slåss bare når vi er sterke nok, ellers betal, ellers gi fra oss tingene
+    const c = await X(() => { const r = Math.max(0, Math.min(5, S.rankIdx)); return { need: BX_NEED[r], p: Math.round(protection()), cost: BX_PAY[r], money: S.money } });
+    const fight = en.find(b => b.primary), pay = en.find(b => !b.primary && /kr/i.test(b.t)), give = en.find(b => b !== fight && b !== pay);
+    const b = c.p >= c.need ? fight : (pay || give || fight);
+    if (b) { await clickIdx(b.i); log(`skap konfrontasjon ${b.t} (vern ${c.p}/${c.need})`); return 'skap cf' }
+  }
+  if (/To sivile/i.test(inf.title)) { const b = en.find(b => /time/i.test(b.t)); if (b) { await clickIdx(b.i); log('skap: sivile, kommer tilbake om en time'); return 'skap wait' } }
+  const b = en.find(b => b.primary) || en[0];
+  if (b) { await clickIdx(b.i); return 'skap ' + b.t.slice(0, 30) }
+  return null;
+}
+
 // ---- dialogs ----
 const _h = globalThis.handle;
 globalThis.handle = async inf => {
+  if (/bxslip/.test(inf.cls)) { const r = await skapDialog(inf); if (r) return r }
   if (/fmslip/.test(inf.cls)) {
     const r = await X(() => { const s = document.querySelector('#slip'); const go = s.querySelector('#fmGo'); if (go && !go.disabled) { go.click(); return 'fm-next' }
       const c = [...s.querySelectorAll('.fmopts button.choice')].filter(b => !b.disabled); const b = c.find(b => b.classList.contains('primary')) || c[0]; if (b) { b.click(); return 'fm-pick ' + b.innerText.replace(/\s+/g, ' ').slice(0, 50) } return null });
@@ -269,7 +301,7 @@ globalThis.mainAction = async () => {
   const s = await X(() => S ? { day: S.day, date: dayDate(S.day).toISOString().slice(0, 10), rank: S.rankIdx, money: S.money, vif: !!(S.vif && S.vif.own), hasBet: !!(S.ulk && S.ulk.bet), imp: !!S.imp, wk: !!S.wk } : null);
   if (s && !s.wk) {
     try {
-      const r = (await facStep(s)) || (await bossStep(s)) || (await gangStep(s)) || (await vifGambleStep(s)) || (await lawyerStep(s)) || (await phoneStep(s)) || (await heliStep(s)) || (await vifBuy(s)) || (await vifBet(s)) || (await bankStep(s));
+      const r = (await skapStep(s)) || (await facStep(s)) || (await bossStep(s)) || (await gangStep(s)) || (await vifGambleStep(s)) || (await lawyerStep(s)) || (await phoneStep(s)) || (await heliStep(s)) || (await vifBuy(s)) || (await vifBet(s)) || (await bankStep(s));
       if (r) return r;
     } catch (e) { log('ERR ' + String(e).slice(0, 120)); try { await closeAll() } catch (_) {} }
   }
