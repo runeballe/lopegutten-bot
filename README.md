@@ -107,3 +107,11 @@ node gang-all.mjs                                  # every card in ~/.config/lop
 `cards.txt` holds one `CODE nickname` per line and stays outside the repo.
 
 **Tampermonkey:** `node build-userscript.mjs` writes `~/lopegutten-gjeng.user.js` (bot.js + `gjeng.user.tpl.js`). It adds an «ØBB-gjengen» panel with Alt / Respekt / Dagens kamp / Gjengjobb / Stopp buttons and does the same steps for the card that is logged in, inside a running normal game. Edit the template and rebuild; never edit the built file.
+
+## Visste du at … (fun facts)
+
+Alle de 26 «Visste du at»-tekstene fra spillet, sitert ordrett, med skjermbilder og en forklaring av hva vitsen går ut på: **[funfacts/FUNFACTS.md](funfacts/FUNFACTS.md)**. *(All 26 in-game "Did you know" facts, in Norwegian.)*
+
+> Cannabis Sativa kan bli opptil 1.8 meter høy. Da er den 'høy' da...
+
+> Vigra kom til Norge i 1998. Via Vigra, selvfølgelig. På Vinderen kalte de det et medisinsk gjennombrudd.
