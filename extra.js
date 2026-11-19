@@ -288,6 +288,11 @@ async function skapDialog(inf) {
 const _h = globalThis.handle;
 globalThis.handle = async inf => {
   if (/bxslip/.test(inf.cls)) { const r = await skapDialog(inf); if (r) return r }
+  // «Hvilken gudfar blir du?» (ved Pusher, gjelder resten av spillet). Penger: +5 % salgspris og 5 % billigere innkjøp ute.
+  if (/olchslip/.test(inf.cls)) {
+    const r = await X(k => { const b = document.querySelector(`#slip .olch[data-k="${k}"]`) || document.querySelector('#slip .olch'); if (!b) return null; b.click(); return b.dataset.k }, CFG.olPath || 'money');
+    if (r) { log('gudfar-valg ' + r); return 'olpath ' + r }
+  }
   if (/fmslip/.test(inf.cls)) {
     const r = await X(() => { const s = document.querySelector('#slip'); const go = s.querySelector('#fmGo'); if (go && !go.disabled) { go.click(); return 'fm-next' }
       const c = [...s.querySelectorAll('.fmopts button.choice')].filter(b => !b.disabled); const b = c.find(b => b.classList.contains('primary')) || c[0]; if (b) { b.click(); return 'fm-pick ' + b.innerText.replace(/\s+/g, ' ').slice(0, 50) } return null });

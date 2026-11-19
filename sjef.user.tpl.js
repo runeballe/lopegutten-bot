@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         lopegutten
 // @namespace    https://lopegutten.com/
-// @version      1.3.0
+// @version      1.3.1
 // @description  Panel med ▶ SPILL / ■ STOPP. Kjører Onkel-boten på kortet du er logget inn med: handel, produksjon fullt utbygd, underbosser med full lojalitet, helikopter, mobil, politiradio, Tor Engen Straff, Bergen, Tromsø og Jølle, Vålerenga-spesialspill. Bare spillets egne knapper.
 // @author       runeball
 // @icon         https://lopegutten.com/favicon.svg
