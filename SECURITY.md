@@ -31,7 +31,7 @@ In scope:
 - Automation that writes outside its own profile, or touches another player's card.
 - Code execution triggered by game content (for example a nickname or dialog text that reaches
   `eval`, a shell command, or a filename).
-- Credential or session handling bugs in the run scripts (`run-onkel.sh`, `run.mjs`, `onkel.mjs`).
+- Credential or session handling bugs in the run scripts (`speedrun.mjs`, `gang.mjs`, `gang-all.mjs`).
 
 Out of scope:
 

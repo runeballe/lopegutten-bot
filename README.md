@@ -1,116 +1,102 @@
 # lopegutten-bot
 
-Bot for [Løpegutten](https://lopegutten.com/). It plays through the game's own buttons and dialogs and never edits game state directly. It takes a figure from Taper to Gudfar, then coasts to 31.12.1999 so the figure gets a frame on the family portrait wall.
+Bot og Tampermonkey-skript for nettspillet [Løpegutten](https://lopegutten.com/), Oslos underverden 1990–1999.
 
-Results so far (player card Onkel-Akan):
-- Family **BAK**: 10/10 branches. LOKE, ODIN, TOR, FRØY, BALDER, HEIMDAL, TYR and BRAGE are Gudfar.
-- Family **Kodesen**: VIDAR, VALE and ULL are Gudfar.
-- Norgeslista «Gjennom tidene»: **Udødelig**, nr. 1.
+Botene spiller **bare med spillets egne knapper og dialoger**. De endrer aldri spilltilstanden direkte og
+sender aldri oppdiktede tall til serveren.
 
-## Requirements
+Alt vi har lært om spillet (hva som gir makt, hvordan du tjener mest, gjengen, troféer og felle-situasjoner)
+står i **[ERFARINGER.md](ERFARINGER.md)**.
 
-`bot.js` runs in omp's JavaScript eval kernel (Bun). It expects the `browser` global and the `print` helper that omp provides. Porting it to plain Puppeteer means replacing `browser.tab(...)`, `tab.evaluate`, `tab.select`, `tab.fill` and `tab.type`.
+---
 
-## Usage (omp)
+## Innhold
 
-1. Open the game in a named tab, with reduced motion on so animations are short:
-   ```js
-   const t = await browser.open({ name: 'lg2', url: 'https://lopegutten.com/', persist: true, app: { relay: false, tern: false } });
-   await t.run(async ({ page }) => { await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]); await page.reload({ waitUntil: 'load' }); });
-   ```
-2. On a new browser profile, load your player card. Use «Har du spillerkort fra før?» or:
-   ```js
-   await t.evaluate(() => { restoreDialog('XXXXXXXXXXXX'); }); // then click «Sjekk koden» / «Bli …»
-   ```
-3. Load the bot:
-   ```js
-   (0, eval)(await Bun.file('bot.js').text());
-   ```
-4. Start a figure and drive it:
-   ```js
-   await startFig('NAVN', 4, 'BAK');            // nickname, figure portrait 1–10, family
-   globalThis.QUEUE = [['NESTE', 5, 'BAK']];    // figures to start after this one ends
-   globalThis.TRIBUTE = true;                   // opt-in: pay 100 % tribute to the gang on 30.12.1999 (default: no tribute)
-   await driver(1700 * 1000);                   // runs up to ~28 min per call; call again to continue
-   ```
-   Call `driver` repeatedly. Each call returns `'time'`, `'done'` (queue empty), or `'decide'` / `'stuck'` (a dialog the rules don't cover; check `REP` and `await info2()`).
+### Spillogikken (lag som lastes oppå hverandre)
 
-Useful helpers: `st()` gives a status snapshot, `branches()` lists the BAK portrait wall, `LOG` holds fallback decisions, and `REP` holds driver events.
+| Fil | Hva den gjør |
+|---|---|
+| `bot.js` | Grunnlaget. Handel (ruter, innkjøp, kurerer, salg), regler for dialogene, arrestasjoner, konfrontasjoner, investeringer og figurstart i en slekt (`startFig`). |
+| `extra.js` | Alt rundt Gudfar og pengemaskinen. Se lista under. |
+| `bergen.js` | Bergen etter Gudfar: varer med Bergensbanen hver uke, Sjø-Sveins jobber og oppgjøret med Hansa-Henrik. |
+| `tromso.js` | Tromsø (bare Imperiet): jobbene i Havna, Storgata og Tromsdalen, fleinsopp og grillkampen mot Jølle. |
+| `speedrun.js` | «Raskest til Gudfar»: rask handel og rulett-finale. Brukes bare når eieren har sagt ja til kasino. |
+| `ordforer.js` | Ordføreren i Imperiet: valgkampen til Holm-Aasheim, nominasjonen og valgnatta. |
 
-## Strategy (what the bot does)
+**`extra.js` tar seg av:**
+- Produksjonen fullt utbygd: marihuanagård, amfetaminlab og finca.
+- Underbossene på full lojalitet, også Morten fra Vålerenga.
+- Gjengen, våpen og ledige bydeler.
+- Utstyr fra Hovedkvarteret: mobil, nytt SIM-kort, politiradio og helikopter.
+- Advokaten Tor Engen Straff.
+- **Vålerenga og Vedde-Glenn.** Den kjøper klubben, og spiller bare spesialspill med odds over 20, med keeperfiks og maks innsats.
+- Sveitsisk bank, men innskudd først etter at klubben er kjøpt.
+- **Skap 214**: åpner skapet og bruker gjenstandene.
+- **Ringer slekta** i stedet for å låne hos Lånehaien.
+- Valget «Hvilken gudfar blir du?», der den velger Penger.
+- Familiemøtene.
 
-- **Routes:** Sverige at Taper, Polen from Løpegutt to Pusher, Russland from Mastermind on. A country is skipped if Leif A. Lire is watching it.
-- **Buying:**
-  - Fills about 2.5 street sales per good, scaled by rank demand.
-  - Spreads money across goods, because a bad batch throws out all of that good.
-  - Skips low-margin goods from Pusher up.
-- **Couriers:** For every load it tries all mixes of student, pensioner, pro courier and container, and picks the one with the lowest cost plus expected customs loss.
-- **Selling:** Sells everything the street will take. Waits a day when demand is low.
-- **Investing:**
-  - Protection to 95.
-  - Districts with 3 dealers each.
-  - Farm, lab and finca.
-  - Front businesses: car dealer (−15 % customs), video, solarium, club, car wash, pizzeria.
-  - Police insider.
-  - The three Gudfar items (Fornebu, councillor, villa).
-  - Top lawyer once Gudfar.
-- **Arrests:** Bribes with kr 100. If that fails, the fine is only kr 200, so it costs less than bail.
-- **Fights:** Fights only at ≥60 % odds and when its protection is at least the opponent's.
-- **Trial (Operasjon Tusenår):** Always takes the plea deal.
-- **Kronprinsen:** Always buys him out.
-- **Gudfar:** Coasts with 30-day Colombia trips without buying. From day 3610 it waits day by day. At the year-2000 window it picks «Til forsiden», so it **does not** enter Imperiet and the single Imperiet save slot is left alone.
-- **Imperiet mode** (`S.imp`): trades normally, with no coasting and no tribute. It earns money, but no Norgeslista points.
+### Skript som kjører botene (Node + Chromium)
 
-## Known gaps
+| Fil | Bruk |
+|---|---|
+| `speedrun.mjs` | `node speedrun.mjs [minutter] [fresh]`: forsøk på Raskest til Gudfar. Starter ny figur i slekta når et forsøk feiler. |
+| `gang.mjs` | `LG_CARD=<kode> node gang.mjs [tribute,fight,job]`: dagens gjengoppdrag for ett kort (tributt til respekt-taket, dagens gatekamp, ukejobben). |
+| `gang-all.mjs` | `node gang-all.mjs`: det samme for alle kortene i `cards.txt`, noen om gangen. |
 
-- Unknown dialogs fall through to `fallback()`. It prefers small payments (≤ 2 mill.) and «nei/ikke» options, and logs them in `LOG`.
-- The gang's weekly job has a server-side cap per member per day (`job.perDay`, kr 5 mill. at gang rank Bakgårdsbanden), so the whole gang has to chip in over several days.
-- Long eval cells sometimes kill the kernel. Reload `bot.js` and call `driver` again; the game state lives in the browser.
+**Miljøvariabler:**
 
-## Bergen (`bergen.js`)
+| Variabel | Betydning |
+|---|---|
+| `LG_PROFILE` | Chromium-profilen for kortet (én profil per spillerkort) |
+| `LG_CARD` | Kortkoden (bare i miljøet, aldri i filer) |
+| `LG_FIGHT` | Hvor gjengen skal slåss. En prioritert liste som `toyen,gamle:20` betyr første bydel der vi leder med mindre enn 20. `duel` betyr ukas duell. Uten verdi velges beste forventede gevinst. |
+| `LG_PREFER_IMP` | `1` betyr bruk Imperiet-spillet først når kortet har det |
+| `LG_FAM`, `LG_PREFIX` | Slekt og navneprefiks for nye figurer i speedrun |
 
-Bergen belongs to each round and opens when that round passes the Gudfar scene. An Imperiet save that sits at rank 5 without the Gudfar flag can never open it.
+### Tampermonkey-skript (spill selv med boten i nettleseren)
 
-To take Bergen, control must reach 70 % with Nygårdsparken done. Hansa-Henrik then invites you to the showdown, and the bot buys him out for max(kr 5 mill., 25 % of your money).
+| Bygg med | Gir | Hva |
+|---|---|---|
+| `node build-sjef-userscript.mjs` | `~/lopegutten-sjef.user.js` | **Onkel-boten**: panel med ▶ SPILL / ■ STOPP. Kan flyttes og minimeres. Kjører `bot.js`, `bergen.js`, `tromso.js` og `extra.js` på kortet du er logget inn med. |
+| `node build-userscript.mjs` | `~/lopegutten-gjeng.user.js` | **Gjengen**: tributt, dagens kamp og gjengjobb for kortet som er logget inn. |
+| `node build-ordforer-userscript.mjs` | `~/lopegutten-ordforer.user.js` | **Ordføreren** i Imperiet. |
 
-Control comes from:
-- sales: 1 % per kr 150 000, max 2.5 % a week
-- Sjø-Svein's jobs: 17. mai sprit, Brann ecstasy, Nygårdsparken 3 loads, +10 % each
-- Ali's smokes: +5 %
+Rediger malene (`*.user.tpl.js`) og spill-lagene, og bygg på nytt. Ikke rediger de ferdige filene.
 
-Load it after `bot.js`: `(0, eval)(await Bun.file('bergen.js').text())`. From then on the bot does this automatically once a round is Gudfar:
-- stocks up on sprit, ecstasy and tobacco in Polen and Nederland
-- ships via Bergensbanen every week
-- lies low a week at a time between shipments
-- buys Henrik out at the showdown
+---
 
-## Gang respect («Din respekt i dag: x / 3 000»)
-
-Only **tribute** fills daily respect; street sales count toward the weekly job, not toward respect. Big payments follow roughly 396 + 300 × log10(amount / kr 1 mill.) respect, so many small payments are far cheaper than one big one. Measured 2026-11-07: kr 130 000 gives 166 respect, so 18 × kr 130 000 plus one top-up (kr 2.39 mill. in total) fills 3 000. The daily caps (respect, job share, street fight) reset at midnight Oslo time.
-
-## Daily gang chores (`gang.mjs`, `gang-all.mjs`)
-
-`gang.mjs` does one player card's daily gang work in its own headless Chromium profile (`~/.local/share/lopegutten-bot/card-<CODE>`), so several cards can run side by side:
-
-1. Links the card (`restoreDialog`), pulls the card's cloud save and resumes its normal game (or its Imperiet game).
-2. **Tribute:** pays small amounts from the game's money (`KASSA` → «Betal tributt») until «Din respekt i dag» reaches the cap. The last payment is sized to land on the cap.
-3. **Dagens gatekamp:** asks the server for the odds in every district (`pre`, the same call as opening a district and retreating) and fights where chance × control gain is highest. Erkefiende districts give double gain.
-4. **Ukas gjengjobb:** trades with `bot.js` (`COAST = false`, `LATE_TRADE = true`) until this member's daily share (`job.perDay`) is sold, then flushes it with the game's own `gFlush()`. After day 3560 it uses short Sverige/Polen trips. At the year-2000 window it continues in Imperiet when the card's Imperiet slot is empty, so the card keeps a running game for tomorrow.
-5. Saves and pushes the save to the cloud.
+## Komme i gang
 
 ```sh
-LG_CARD=XXXXXXXXXXXX node gang.mjs                 # all steps
-LG_CARD=XXXXXXXXXXXX node gang.mjs fight,job       # pick steps: tribute, fight, job
-node gang-all.mjs                                  # every card in ~/.config/lopegutten-bot/cards.txt, 3 at a time (LG_PAR)
+npm ci                       # puppeteer-core
+# Chromium må ligge i /usr/bin/chromium
 ```
 
-`cards.txt` holds one `CODE nickname` per line and stays outside the repo.
+1. Lag én Chromium-profil per spillerkort, og koble kortet i spillet («Har du spillerkort fra før?»).
+2. Legg kortkodene i `~/.config/lopegutten-bot/cards.txt`, én `KODE kallenavn` per linje.
+3. Kjør skriptene med `LG_PROFILE` (og `LG_CARD` for gjengoppdragene).
 
-**Tampermonkey:** `node build-userscript.mjs` writes `~/lopegutten-gjeng.user.js` (bot.js + `gjeng.user.tpl.js`). It adds an «ØBB-gjengen» panel with Alt / Respekt / Dagens kamp / Gjengjobb / Stopp buttons and does the same steps for the card that is logged in, inside a running normal game. Edit the template and rebuild; never edit the built file.
+---
+
+## Regler botene følger
+
+- **Bare spillets egne knapper.** Ingen endring av spilltilstanden og ingen forfalskede data mot serveren.
+- **Aldri «Gi opp».**
+- **Kasino, rulett og veddemål** brukes bare der kortets eier har sagt ja: Glenn-spesialspill, og rulett i
+  speedrun og makt-forsøk.
+- **Én bot per spillerkort om gangen.** Skysynken overskriver lagringer ellers. Viser spillet
+  «TO SPILL, ÉN SPILLER», stopper boten.
+- **Imperiet-lagringer og andres kort** røres ikke uten at eieren har sagt ja.
+- **Kortkoder hører aldri hjemme i git eller logger.** `cards.txt` og `userscript-cards.json` er i `.gitignore`.
+  Kjør `gitleaks` før hver push.
+
+---
 
 ## Visste du at … (fun facts)
 
-Alle de 26 «Visste du at»-tekstene fra spillet, sitert ordrett, med skjermbilder og en forklaring av hva vitsen går ut på: **[funfacts/FUNFACTS.md](funfacts/FUNFACTS.md)**. *(All 26 in-game "Did you know" facts, in Norwegian.)*
+Alle de 26 «Visste du at»-tekstene fra spillet, sitert ordrett, med skjermbilder og en forklaring av hva vitsen
+går ut på: **[funfacts/FUNFACTS.md](funfacts/FUNFACTS.md)**.
 
 > Cannabis Sativa kan bli opptil 1.8 meter høy. Da er den 'høy' da...
 

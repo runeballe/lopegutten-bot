@@ -1,80 +1,43 @@
-# AGENTS.md — Løpegutten-bot
+# AGENTS.md – lopegutten-bot
 
-Kontekst for AI-agenter (Claude Code, Hermes, andre) som skal drifte eller endre denne botten.
-
-## Hva dette er
-
-Automatisering av nettspillet [Løpegutten](https://lopegutten.com/) med Puppeteer. Botten klikker
-spillets egne knapper og dialoger. Den redigerer aldri spilltilstand direkte.
-
-Spillmekanikk som gjelder oppgavene her:
-
-- **Ukens Oslo**: ukeskonkurranse. Alle spiller samme Oslo 1990–1994 (dag 0–1825). Runden
-  starter søndag kl. 21.00. **Beste forsøk teller** — et dårlig forsøk kan aldri senke scoren.
-- **Ukens vri** skifter hver uke (f.eks. «Bombebølgen»: bomber selges fra dag én, søkelyset
-  stiger dobbelt så fort).
-- Rang stiger med formue/status: Taper → Løpegutt → … → Mastermind → Gudfar.
-- **Olsen-skatten** trekkes med jevne mellomrom og kan tømme kassa.
-- **Tollkontroll** ved ankomst Norge kan beslaglegge hele lasset pluss bot.
-- **Heat** (søkelyset) over ~40 gir arrest; ligg lavt for å senke det.
-
-## Kjøring
-
-```bash
-npm ci
-node onkel.mjs                  # spiller Ukens Oslo
-./run-onkel.sh                  # samme, med auto-restart (maks 20 forsøk)
-penger.mjs                      # vanlig spill (ikke Ukens)
-ukens.mjs                       # eldre Ukens-runner (bot.js-basert)
-```
-
-Miljøvariabler:
-
-| Variabel | Standard | Betydning |
-|---|---|---|
-| `LG_PROFILE` | `$HOME/.local/share/lopegutten-bot/chrome` | Chromium-profil med innlogging |
-| `LG_UKE_DAYS` | `2000` | Dag botten stopper på |
-| `LG_CARD` | – | Kortkode, valgfri (brukes ikke av `onkel.mjs`) |
-
-Logg: `$HOME/.local/share/lopegutten-bot/logs/onkel-play.log`.
-
-## Strategi i `onkel.mjs`
-
-- Kjøp i `se` (Sverige) når kassa er under 2 mill., ellers `de` (Tyskland).
-- Kjøp maks 80 enheter per vare, budsjett 90 % av kassa, men behold minst 2 500 kr.
-- Selg alt via `#sellAll` (den selger og lukker i ett klikk). Er knappen deaktivert, avbryt.
-- Forhandling: velg «gatepris».
-- Konfrontasjon: «Slåss» når vinnersjansen er ≥ 50 %, ellers «Stikk av».
-- Arrest: kausjon hvis kassa dekker den, ellers soning.
-- Heat > 30: ligg lavt.
-- Blakk (< 2 500 kr): be om lån via `loanDialog()` hvis `S.loan` er tom.
-- Ved `detached Frame`: `reattach()` åpner ny fane og går inn i Ukens igjen.
+For AI-agenter som skal drifte eller endre botene. Les også [README.md](README.md) (filene og bruken) og
+[ERFARINGER.md](ERFARINGER.md) (spillmekanikk og lærdommer).
 
 ## Forbud (ikke bryt disse)
 
-1. **Aldri** klikk «Gi opp» / give-up-knapper.
-2. **Aldri** kasino, lotto, veddemål eller bestikkelser.
-3. **Kun én maskin/en bot per spillerkort.** Sky-synken overskriver lagringer ellers.
-4. Ikke rør Imperiet-lagringer eller andre kort uten å spørre eieren.
-5. Ikke start flere instanser: bruk `run-onkel.sh` (én wrapper) og sjekk med
-   `ps -eo cmd | grep "[n]ode onkel.mjs"`.
+1. **Bare spillets egne knapper og dialoger.** Ikke skriv til `S` eller andre spillvariabler, og send aldri
+   oppdiktede tall til serveren (penger, spilldager, kassa).
+2. **Aldri** klikk «Gi opp».
+3. **Kasino, rulett, lotto og veddemål** bare der kortets eier uttrykkelig har sagt ja for akkurat den
+   kjøringen (i dag: Glenn-spesialspill, og rulett i speedrun og makt-forsøk).
+4. **Én bot per spillerkort.** Sjekk med `pgrep -af "<skript>.mj[s]"` før du starter noe. Viser spillet
+   «TO SPILL, ÉN SPILLER», skal boten stoppe, ikke velge.
+5. **Ikke rør Imperiet-lagringer eller andres kort** uten å spørre eieren.
+6. **Gjengkortene skal aldri ta 1. plass** på noen liste. Bare eierens slekt skal det.
+7. **Kortkoder hører aldri hjemme i git, logger eller filer som deles.** Kjør `gitleaks detect` før hver push.
 
-## Filkart
+## Hvordan lagene henger sammen
 
-| Fil | Rolle |
-|---|---|
-| `onkel.mjs` | Ukens Oslo-driver, eksplisitte steg med logging |
-| `run-onkel.sh` | Auto-restart-wrapper rundt `onkel.mjs` |
-| `ukens.mjs` | Eldre Ukens-runner (bruker `bot.js`) |
-| `penger.mjs` | Vanlig spill: kjøp/selg/oppgradering |
-| `bot.js` | Regelverk for dialoger (regex-regler) |
-| `speedrun.mjs` | Rask gjennomspilling |
-| `sjefen.user.js` | Userscript v4.4.0: PENGER / VEDLIKEHOLD / ■ STOPP |
-| `lopegutten-gjeng.user.js` | Userscript for gjeng-oppgaver |
+- Spill-lagene (`bot.js`, `extra.js`, `bergen.js`, `tromso.js`, `speedrun.js`, `ordforer.js`) lastes med
+  `(0, eval)(...)` i Node, med et `tab`-objekt der `tab.evaluate` er `page.evaluate`.
+- Hjelpefunksjoner ligger på `globalThis`. Senere lag overstyrer `handle`, `mainAction`, `route` og så videre.
+- Rekkefølgen er `bot.js` først, så `bergen.js` / `tromso.js`, og `extra.js` sist.
+- Userscriptene bygges av de samme lagene. Byggeskriptet flytter `globalThis.` over på et privat `BOT`-objekt.
+  Endre lagene eller malene, og bygg på nytt.
+
+## Kjente feller
+
+- **Figurer får gatenavn underveis** (for eksempel «Tjukken»). Kjenn igjen en figur på `S.dyn.t` eller Gudfar-dagen,
+  ikke på navnet.
+- **En slektsgren lages først når figuren når år 2000.** En gammel lagring som lastes og spilles til 2000 på nytt,
+  gir en dobbel gren.
+- **I Tromsø må du aldri lukke alle dialoger blindt** (`closeAll`). Den siste knappen er «Kjøp av Boris».
+- **Botens standardregler** sier nei til spesialoppdrag og velger «hold deg utenfor». Det må overstyres når et
+  trofé eller oppdrag skal tas.
+- **`pgrep -f` treffer sitt eget skall.** Bruk mønstre som `kasse-card.mj[s]`.
 
 ## Konvensjoner
 
-- Kode og kommentarer på norsk, korte og konkrete.
-- Bruk `say(...)`-logg i `onkel.mjs` — hver handling skal kunne leses i loggen.
-- Etter endring: `node --check onkel.mjs`, og en kort test med `LG_UKE_DAYS=5`.
-- Hemmeligheter (kortkoder i `~/.config/lopegutten-bot/cards.txt`) skal aldri i git.
+- Kode og kommentarer kort og konkret, gjerne på norsk.
+- Hver handling skal kunne leses i loggen (`say(...)` / `log(...)`).
+- Etter endring: `node --check <fil>`, og en kort testkjøring før langkjøring.
