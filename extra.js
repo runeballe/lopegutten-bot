@@ -284,6 +284,31 @@ async function skapDialog(inf) {
   return null;
 }
 
+// ---- Ring slekta (Hovedkvarteret → Slekta → Telefonen). Hver slektning én gang per figur. ----
+// Gudfar-grener gir 25 % av formuen (maks 150 000), Imperiet-grener 35 % (maks 250 000), Mastermind 5 % (maks 20 000)
+// og −10 søkelys, lavere rang bare −4 til −8 søkelys. Ring når utbetalingen er på maks, eller når vi er blakke
+// (i stedet for Lånehaien), og de andre når søkelyset er høyt.
+async function callStep(s) {
+  if (ST.callDay === s.day) return null;
+  ST.callDay = s.day;
+  const want = await X(() => { if (!S || !S.dyn || S.wk || typeof dynCtx !== 'function' || typeof DYN_CALL === 'undefined') return null;
+    const { f } = dynCtx(); if (!f || !f.b) return null; const calls = S.dyn.calls || {}; let nw = 0; try { nw = Math.max(0, netWorth()) } catch (_) {}
+    const broke = S.money < 5000, heat = S.heat || 0, out = [];
+    const seen = new Set();
+    for (const [k, b] of Object.entries(f.b)) { const sig = b.n + '|' + b.e + '|' + b.y; if (seen.has(sig)) continue; seen.add(sig); /* samme slektning to ganger (uhell) ringes bare én gang */
+      if (calls[k]) continue; const c = DYN_CALL[b.e] || DYN_CALL.R0;
+      const full = c.hi > 0 && nw * c.p >= c.hi;
+      if ((c.hi > 0 && (full || broke)) || (c.h > 0 && heat >= 25)) out.push(k) }
+    return out.length ? out : null });
+  if (!want) return null;
+  const n = await X(async ks => { slektaDialog(); await new Promise(r => setTimeout(r, 600)); let n = 0;
+    for (const k of ks) { const b = document.querySelector(`#slip [data-call="${k}"]`); if (b && b.classList.contains('primary')) { b.click(); n++; await new Promise(r => setTimeout(r, 400)) } }
+    return n }, want);
+  await closeAll();
+  if (n) { log(`ring slekta: ${n} samtaler`); return 'slekt ' + n }
+  return null;
+}
+
 // ---- dialogs ----
 const _h = globalThis.handle;
 globalThis.handle = async inf => {
@@ -306,7 +331,7 @@ globalThis.mainAction = async () => {
   const s = await X(() => S ? { day: S.day, date: dayDate(S.day).toISOString().slice(0, 10), rank: S.rankIdx, money: S.money, vif: !!(S.vif && S.vif.own), hasBet: !!(S.ulk && S.ulk.bet), imp: !!S.imp, wk: !!S.wk } : null);
   if (s && !s.wk) {
     try {
-      const r = (await skapStep(s)) || (await facStep(s)) || (await bossStep(s)) || (await gangStep(s)) || (await vifGambleStep(s)) || (await lawyerStep(s)) || (await phoneStep(s)) || (await heliStep(s)) || (await vifBuy(s)) || (await vifBet(s)) || (await bankStep(s));
+      const r = (await callStep(s)) || (await skapStep(s)) || (await facStep(s)) || (await bossStep(s)) || (await gangStep(s)) || (await vifGambleStep(s)) || (await lawyerStep(s)) || (await phoneStep(s)) || (await heliStep(s)) || (await vifBuy(s)) || (await vifBet(s)) || (await bankStep(s));
       if (r) return r;
     } catch (e) { log('ERR ' + String(e).slice(0, 120)); try { await closeAll() } catch (_) {} }
   }
