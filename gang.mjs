@@ -151,7 +151,8 @@ if (STEPS.has('fight')) {
     if (!(m.left > 0)) return { err: 'used', left: m.left };
     const str = kgStr(), rows = [];
     const pre = async id => { for (let k = 0; k < 5; k++) { const P = await kgPost('pre', { d: id, str }); if (P && P.ok) return P; if (P && P.err === 'nogang') return null; await new Promise(r => setTimeout(r, 1500 * (k + 1))) } return null };
-    for (const d of m.dists) { const P = await pre(d.id); if (P) rows.push({ id: d.id, chance: P.chance, gain: P.gain || m.win, duel: !!P.duel, arch: !!P.arch, def: P.def, left: P.left }); await new Promise(r => setTimeout(r, 300)) }
+    const lead = d => { const mine = (d.pts.find(p => p.gid === m.me.gid) || {}).pts || 0; const oth = Math.max(0, ...d.pts.filter(p => p.gid !== m.me.gid).map(p => p.pts)); return mine - oth };
+    for (const d of m.dists) { const P = await pre(d.id); if (P) rows.push({ id: d.id, chance: P.chance, gain: P.gain || m.win, duel: !!P.duel, arch: !!P.arch, def: P.def, left: P.left, lead: lead(d) }); await new Promise(r => setTimeout(r, 300)) }
     rows.sort((a, b) => b.chance * b.gain - a.chance * a.gain);
     return { str, rows };
   });
@@ -159,7 +160,11 @@ if (STEPS.has('fight')) {
   if (pick.rows && pick.rows.length) {
     const wanted = process.env.LG_FIGHT || '';
     // LG_FIGHT=duel: ta bydelen som er merket som ukas duell, ellers beste bydel.
-    const best = (wanted === 'duel' ? pick.rows.find(r => r.duel)?.id : pick.rows.find(r => r.id === wanted)?.id) || pick.rows[0].id;
+    // LG_FIGHT=toyen,gamle[:20]: første bydel i lista der vi ikke leder med minst marginen (standard 20), ellers den siste.
+    const [list, mg] = wanted.split(':'), want = list.split(',').filter(Boolean), margin = +mg || 20;
+    const prio = want.length > 1 || (want.length && want[0] !== 'duel') ? (want.map(id => pick.rows.find(r => r.id === id)).find(r => r && r.lead < margin) || pick.rows.find(r => r.id === want[want.length - 1]))?.id : null;
+    const best = prio || (wanted === 'duel' ? pick.rows.find(r => r.duel)?.id : null) || pick.rows[0].id;
+    say('FIGHT TARGET', best, wanted || 'auto');
     await globalThis.closeAll();
     await page.evaluate(id => { kgFight(id); return 0 }, best);
     let result = null;
