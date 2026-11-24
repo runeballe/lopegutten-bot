@@ -106,6 +106,10 @@ async function vifBet(s) {
   if (!s.vif || s.day - ST.lastBet < 1 || s.hasBet) return null;
   const m = new Date(s.date).getMonth(); if (m < 2 || m > 10) return null;
   ST.lastBet = s.day;
+  // en gevinst koster ~+85 mistenkt uansett innsats, så bare full takst (5 mill) lønner seg: vent til sus < 40,
+  // sitt ut 3-4 kampers avklinging i stedet for å fyre kvart-størrelser som låser suspicion høyere
+  const sus = await X(() => typeof ulSus === 'function' ? ulSus() : 0);
+  if (sus >= (CFG.susMax || 40)) { if (ST.lastSusLog !== s.day) { ST.lastSusLog = s.day; log(`bet skip: Glenn mistror oss (sus ${sus})`) } return null }
   // Glenn cuts his till after a big win (50 000 or 25 % of normal); only bet when he takes at least CFG.minStake
   const mx = await X(() => typeof ulMax === 'function' ? ulMax(true) : 0);
   if (mx < CFG.minStake) { if (ST.lastSkipMx !== s.day) { ST.lastSkipMx = s.day; log(`bet skip: Glenn tar maks kr ${mx}`) } return null }
@@ -293,7 +297,7 @@ async function callStep(s) {
   ST.callDay = s.day;
   const want = await X(() => { if (!S || !S.dyn || S.wk || typeof dynCtx !== 'function' || typeof DYN_CALL === 'undefined') return null;
     const { f } = dynCtx(); if (!f || !f.b) return null; const calls = S.dyn.calls || {}; let nw = 0; try { nw = Math.max(0, netWorth()) } catch (_) {}
-    const broke = S.money < 5000, heat = S.heat || 0, out = [];
+    const broke = S.money < 5000 && nw >= 300000, heat = S.heat || 0, out = []; // ring bare når utbetalingen er verdt det (Erfaringer: ring ved 600–700 k)
     const seen = new Set();
     for (const [k, b] of Object.entries(f.b)) { const sig = b.n + '|' + b.e + '|' + b.y; if (seen.has(sig)) continue; seen.add(sig); /* samme slektning to ganger (uhell) ringes bare én gang */
       if (calls[k]) continue; const c = DYN_CALL[b.e] || DYN_CALL.R0;

@@ -105,6 +105,20 @@ Hovedkvarteret → Slekta → Telefonen. Hver slektning kan ringes **én gang pe
   - **Lørdag kl. 21** tar gjengen med mest kontroll hver bydel for neste uke. Så tar politiet 20 % av all kontroll.
   - **Ikke bruk kamper der vi allerede leder trygt.** 19. november gikk alle 10 kampene til Grorud
     (438 mot 61) mens Tøyen og Gamle Oslo var åpne. Nå styres målet av `kasse/fight-target`.
+- **Bruk kassa** (Gjengen → Kassa, nytt i november 2026). Bare sjefen og høyre hånd kan kjøpe, og alle
+  i gjengen ser kjøpene:
+
+  | Kjøp | Pris | Varer | Gir |
+  |---|---|---|---|
+  | **Kampdag** | kr 15 mill | Til lørdag kl. 21 | +1 gatekamp for alle i gjengen. Kan trolig kjøpes én gang per uke. |
+  | **Bestikkelse** | kr 10 mill | 7 dager | −20 % søkelys for alle i gjengen |
+  | **Kausjonsfond** | + kr 2 mill per påfyll | Til pengene er brukt | Betaler kausjonen selv når et fullverdig medlem havner i fengsel. Medlemmet slipper ut på halve tiden. |
+
+  **Kjøp Kampdag og Bestikkelse hver uke.** De koster nesten ingenting mot kassa. Kampdagen 21. november ga
+  9 seire på 10 kamper. Kjøp Kampdag tidlig i uka, så de ekstra kampene havner der de trengs.
+- **Lån muskler:** lån ut kompisene dine til et gjengmedlem i 14 dager. Det gir mer slagkraft for den som låner.
+- **Inviter en kompis:** en ny spiller starter med 3 000 kr ekstra. Gjengen får +200 respekt når vedkommende
+  har betalt Lånehaien.
 - **Ukejobben:** hvert kort selger sin dagsandel. Den ble fullført 19. november.
 - **Kassa:** pengene kommer fra Imperiet-økter med Vålerenga og Glenn. Nye figurer i slekta tjener lite
   (titalls millioner per økt), mens Imperiet gir milliarder.

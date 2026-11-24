@@ -37,6 +37,8 @@ page.on('pageerror', err => { const k = String(err).slice(0, 300); if (Date.now(
 await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
 await page.goto('https://lopegutten.com/', { waitUntil: 'domcontentloaded', timeout: 120000 });
 await page.waitForFunction(() => typeof restoreDialog === 'function' && typeof store !== 'undefined' && typeof kbList === 'function', { timeout: 120000 });
+// dialog-auto-lukking: oppdateringer kan poppe modaler som fryser attempts (watchdog 'dag uendret')
+await page.evaluate(() => { if (window.__dlgFix) return; window.__dlgFix = setInterval(() => { const v = document.querySelector('#veil'); if (!v || v.hidden) return; const b = [...document.querySelectorAll('#slip button, .dlg button')].find(x => !x.disabled && /^(ok|lukk|ferdig|videre|forstått|prøv igjen)$/i.test(x.textContent.trim())); if (b) b.click(); }, 2000); });
 await new Promise(r => setTimeout(r, 3000));
 const linked = await page.evaluate(() => !!store.get('cardCode', ''));
 if (!linked) { await browser.close(); throw new Error('profile is not linked to a player card') }
