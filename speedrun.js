@@ -204,8 +204,9 @@ globalThis.sellAct = async () => {
     }
   }
   SR.lireWaits = 0;
+  // «Selg alt» selger nå med ett trykk (klikker #sellOk selv); klikk Selg bare hvis dialogen fortsatt står
   await X(() => document.querySelector('#sellAll').click()); await sleep(200);
-  await X(() => document.querySelector('#sellOk').click());
+  await X(() => { const ok = document.querySelector('#sellOk'); if (ok && !ok.disabled) ok.click() });
   return 'sold ~' + Math.round(s.now) + (risky ? ' (Lire risk, cash ok)' : '');
 };
 

@@ -83,8 +83,9 @@ async function sellAct() {
   STATE.waits = 0;
   if (sellable <= 0) { STATE.noSell = (STATE.noSell||0)+1; if (STATE.noSell <= 3 && gi.money > gi.waitCost*2) { await E(() => document.querySelector('#sellWait').click()); return 'wait-nodemand' } STATE.noSellDay = gi.day; STATE.noSell = 0; await E(() => document.querySelector('#slip footer button').click()); return 'cancel-sell' }
   STATE.noSell = 0;
+  // «Selg alt» selger med ett trykk (klikker #sellOk selv); klikk Selg bare hvis dialogen fortsatt står
   await E(() => document.querySelector('#sellAll').click()); await wait(200);
-  await E(() => document.querySelector('#sellOk').click());
+  await E(() => { const ok = document.querySelector('#sellOk'); if (ok && !ok.disabled) ok.click() });
   return 'sold ' + Math.round(sellable);
 }
 
