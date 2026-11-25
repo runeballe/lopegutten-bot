@@ -162,7 +162,9 @@ if (STEPS.has('fight')) {
     // LG_FIGHT=duel: ta bydelen som er merket som ukas duell, ellers beste bydel.
     // LG_FIGHT=toyen,gamle[:20]: første bydel i lista der vi ikke leder med minst marginen (standard 20), ellers den siste.
     const [list, mg] = wanted.split(':'), want = list.split(',').filter(Boolean), margin = +mg || 20;
-    const prio = want.length > 1 || (want.length && want[0] !== 'duel') ? (want.map(id => pick.rows.find(r => r.id === id)).find(r => r && r.lead < margin) || pick.rows.find(r => r.id === want[want.length - 1]))?.id : null;
+    // «duel» i lista = bydelen der gjengen er i en akseptert duell (hoppes over når det ikke er noen); en duell vinnes på antall seire, så ingen margin der
+    const rowOf = id => id === 'duel' ? pick.rows.find(r => r.duel) : pick.rows.find(r => r.id === id);
+    const prio = want.length > 1 || (want.length && want[0] !== 'duel') ? (want.map(id => ({ id, r: rowOf(id) })).find(x => x.r && (x.id === 'duel' || x.r.lead < margin)) || { r: rowOf(want[want.length - 1]) }).r?.id : null;
     const best = prio || (wanted === 'duel' ? pick.rows.find(r => r.duel)?.id : null) || pick.rows[0].id;
     say('FIGHT TARGET', best, wanted || 'auto');
     await globalThis.closeAll();

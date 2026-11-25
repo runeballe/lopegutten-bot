@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Løpegutten – gjengen (respekt, kamp, gjengjobb)
 // @namespace    https://lopegutten.com/
-// @version      1.3
+// @version      1.4
 // @description  Daglige gjengoppgaver: tributt til respekt-taket, dagens gatekamp og dagens andel av ukas gjengjobb. Kjør for hvert spillerkort i en privat fane.
 // @match        https://lopegutten.com/*
 // @grant        GM_openInTab
@@ -86,6 +86,7 @@ function pageMain(BOTSRC) {
     panel.innerHTML = `<header><span>🤝 ØBB-gjengen</span><button data-a="min" title="Minimer">▁</button></header>
      <div class="body">
       <div class="row"><button data-g="alt">⭐ Alt</button></div>
+      <div class="row"><input data-a="mal" placeholder="Kampmål, f.eks. gamle,duel,stha:30" title="Bydeler i prioritert rekkefølge (gamle, stha, toyen, frogner, maj, plata, lokka, gron, tveita, grorud). «duel» = ukas duell. :30 = bytt videre når vi leder med 30. Tomt = beste odds." style="flex:1;min-width:0;background:#222;color:#eee;border:1px solid #555;padding:4px;font:inherit"></div>
       <div class="row"><button data-g="trib">💰 Respekt</button><button data-g="kamp">🥊 Kamp</button></div>
       <div class="row"><button data-g="jobb">📦 Gjengjobb</button></div>
       <div class="row"><button data-g="stopp" disabled>⏹ Stopp</button></div>
@@ -102,6 +103,7 @@ function pageMain(BOTSRC) {
     };
     if (ui.min) panel.classList.add('min');
     place(); addEventListener('resize', place);
+    { const f = panel.querySelector('[data-a=mal]'); if (ui.fight == null) { ui.fight = 'gamle,duel,stha:30'; saveUi() } f.value = ui.fight; f.onchange = () => { ui.fight = f.value.trim(); saveUi(); log('Kampmål: ' + (ui.fight || 'beste odds')) } }
     panel.querySelector('[data-a=min]').onclick = () => { ui.min = panel.classList.toggle('min'); saveUi(); place() };
     { const h = panel.querySelector('header'); let dx, dy, drag = false;
       h.addEventListener('pointerdown', e => { if (e.target.tagName === 'BUTTON') return; drag = true; const r = panel.getBoundingClientRect(); dx = e.clientX - r.left; dy = e.clientY - r.top; h.setPointerCapture(e.pointerId); e.preventDefault() });
@@ -164,12 +166,18 @@ function pageMain(BOTSRC) {
       for (const d of m.dists) {
         let P = null;
         for (let k = 0; k < 4 && !(P && P.ok); k++) { P = await kgPost('pre', { d: d.id, str }); if (!(P && P.ok)) await sleep(1500 * (k + 1)) }
-        if (P && P.ok) rows.push({ id: d.id, name: d.name, chance: P.chance, gain: P.gain || m.win });
+        const mine = (d.pts.find(p => p.gid === m.me.gid) || {}).pts || 0, oth = Math.max(0, ...d.pts.filter(p => p.gid !== m.me.gid).map(p => p.pts));
+        if (P && P.ok) rows.push({ id: d.id, name: d.name, chance: P.chance, gain: P.gain || m.win, duel: !!P.duel, lead: mine - oth });
         await sleep(300);
       }
       rows.sort((a, b) => b.chance * b.gain - a.chance * a.gain);
       if (!rows.length) return log('Fikk ingen odds');
-      const best = rows[0];
+      // Mål fra panelet, f.eks. «gamle,duel,stha:30»: første bydel der vi leder med mindre enn marginen;
+      // «duel» = bydelen i en akseptert duell (alltid, når den finnes). Tomt felt = beste forventede gevinst.
+      const [list, mg] = String(ui.fight || '').trim().split(':'), want = (list || '').split(',').map(x => x.trim()).filter(Boolean), margin = +mg || 20;
+      const rowOf = id => id === 'duel' ? rows.find(r => r.duel) : rows.find(r => r.id === id);
+      const hit = want.map(id => ({ id, r: rowOf(id) })).find(x => x.r && (x.id === 'duel' || x.r.lead < margin));
+      const best = (hit && hit.r) || (want.length && rowOf(want[want.length - 1])) || rows[0];
       log(`Kamp: ${best.name} (${best.chance} %, +${best.gain})`);
       await closeAll(); kgFight(best.id);
       let res = null;
