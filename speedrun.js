@@ -465,7 +465,9 @@ globalThis.srDriver = async (ms) => {
     if (W.err > 20) { SR.abort = 'watchdog: feil gjentas ' + W.err + 'x: ' + String(r.out.find(a => /^ERR/.test(String(a)))).slice(0, 60); return 'abort' }
     const dNow = await X(() => (S && Number.isFinite(S.day)) ? S.day : -1).catch(() => -1);
     if (dNow !== W.day || SR.finale) { W.day = dNow; W.t = Date.now() }
-    else if (Date.now() - W.t > 90000) { SR.abort = 'watchdog: dag ' + dNow + ' uendret i 90 s'; return 'abort' }
+    else if (Date.now() - W.t > 90000) {
+      try { const dbg = await X(() => { const v = document.querySelector('#veil'); return { veil: !!(v && !v.hidden), slip: (document.querySelector('#slip')?.innerText || '').slice(0, 400), btns: [...document.querySelectorAll('#slip button')].map(b => (b.disabled ? '(x)' : '') + b.innerText.trim()).slice(0, 12) } }); ev('WDDBG ' + JSON.stringify(dbg) + ' out=' + JSON.stringify(r.out.slice(-8))) } catch (e) { ev('WDDBG err ' + e) }
+      SR.abort = 'watchdog: dag ' + dNow + ' uendret i 90 s'; return 'abort' }
     for (const a of r.out) if (a && !/^(scn|btn|next|null)/.test(a)) ev(a);
     // the same non-main action 40 times in a row: a dialog we keep re-clicking
     if (r.out.length >= 40 && r.out.every(a => a === r.out[0]) && !/^\[d/.test(String(r.out[0]))) { SR.abort = 'loop: ' + String(r.out[0]).slice(0, 80); return 'abort' }

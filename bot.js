@@ -295,7 +295,7 @@ globalThis.startFig = async (name, fig, fam = 'BAK') => {
       const sk = document.querySelector('#hkff .hkskip, #hkst .hkskip');
       if (sk) { sk.click(); return 'hopp over intro' }
       const gn = document.querySelector('#gnIn');
-      if (gn) { if (!gn.value) { gn.value = 'Kas-Gjest'; gn.dispatchEvent(new Event('input', { bubbles: true })) } const go = [...document.querySelectorAll('#slip footer button,#slip .body button')].find(b => !b.disabled && b.offsetParent); if (go) { go.click(); return 'gatenavn: ok' } }
+      if (gn) { gn.value = name || gn.value || 'Kas-Gjest'; gn.dispatchEvent(new Event('input', { bubbles: true })); { const go = [...document.querySelectorAll('#slip footer button,#slip .body button')].find(b => !b.disabled && b.offsetParent); if (go) { go.click(); return 'gatenavn: ok (' + gn.value + ')' } } }
       const v = document.querySelector('#veil');
       if (v && !v.hidden) {
         const b = [...document.querySelectorAll('#slip footer button,#slip .body button')].filter(b => !b.disabled && b.offsetParent && !/gi opp/i.test(b.innerText || ''));
